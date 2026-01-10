@@ -188,7 +188,7 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
-    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str) -> bytes:
+    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body") -> bytes:
         """
         Virtual Try-On Pipeline:
         1. Replicate (Paid, Best) - Skipped if no token.
@@ -201,14 +201,8 @@ class AIService:
              pass # In real file, keep replicate block
              
         # 2. Gradio (Free GenAI)
-        print("Attempting OOTDiffusion (Free GenAI)...")
-        # Ensure we have cloth name or default
-        # Ideally we pass cloth info to this function, but signature only has path.
-        # We'll guess category from filename or just default.
-        # Check if we can get name from path (e.g. model/001.jpg -> we don't know name here easily without lookup)
-        # We will default logic inside _try_on_gradio
-        
-        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path)
+        print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name}...")
+        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name)
         if gen_img:
             return gen_img
             
@@ -235,7 +229,17 @@ class AIService:
             width_ratio = analysis.get("shoulders", 0.5)
             
             p_width, p_height = person_img.size
-            target_width = int(p_width * width_ratio * 1.5) 
+            
+            # Adjust scaling and position based on type
+            is_lower = "褲" in cloth_name or "裙" in cloth_name or "lower" in cloth_name.lower()
+            is_dress = "洋裝" in cloth_name or "dress" in cloth_name.lower()
+            
+            if is_lower and not is_dress:
+                # Pants/Skirt: Center lower, scaling might need to be different
+                target_width = int(p_width * width_ratio * 1.2)
+            else:
+                # Shirt/Dress
+                target_width = int(p_width * width_ratio * 1.5) 
             
             # Maintain aspect ratio of cloth
             c_width, c_height = cloth_img.size
@@ -247,8 +251,16 @@ class AIService:
             
             resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
+            # Calculate Position
             pos_x = int((center_x * p_width) - (target_width / 2))
-            pos_y = int((center_y * p_height) - (target_height / 3))
+            
+            if is_lower and not is_dress:
+                # Place at "waist" approx (lower than chest)
+                # assuming center_y is chest-ish
+                pos_y = int((center_y * p_height) + (p_height * 0.15))
+            else:
+                # Place at "shoulders" approx
+                pos_y = int((center_y * p_height) - (target_height / 3))
             
             result = Image.new("RGBA", person_img.size, (0,0,0,0))
             result.paste(person_img, (0,0))
