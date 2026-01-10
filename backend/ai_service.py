@@ -174,7 +174,7 @@ class AIService:
             result = client.predict(
                 vton_img=handle_file(person_path),
                 garm_img=handle_file(cloth_path),
-                category=category,
+                category=ootd_category,
                 n_samples=1,
                 n_steps=20,
                 image_scale=2,
@@ -242,12 +242,12 @@ class AIService:
             
             # Adjust scaling and position based on type
             # Use explicit category if available
-            is_lower = category == "Lower-body" or "褲" in cloth_name or "裙" in cloth_name
-            is_dress = category == "Dress" or "洋裝" in cloth_name
+            is_lower = category in ["Lower-body", "lower-body"] or "褲" in cloth_name or "裙" in cloth_name
+            is_dress = category in ["Dress", "Whole-body", "whole-body", "One-piece"] or "洋裝" in cloth_name
             
             if is_lower and not is_dress:
-                # Pants/Skirt: Center lower, scaling might need to be different
-                target_width = int(p_width * width_ratio * 1.2)
+                # Pants/Skirt: Center lower
+                target_width = int(p_width * width_ratio * 1.3)
             else:
                 # Shirt/Dress
                 target_width = int(p_width * width_ratio * 1.5) 
@@ -266,9 +266,11 @@ class AIService:
             pos_x = int((center_x * p_width) - (target_width / 2))
             
             if is_lower and not is_dress:
-                # Place at "waist" approx (lower than chest)
-                # assuming center_y is chest-ish
-                pos_y = int((center_y * p_height) + (p_height * 0.15))
+                # Place at "waist" approx
+                # Assuming center_y is chest (0.4), waist is lower.
+                # However, user reported it falling off (too low).
+                # Let's reduce the offset. Previously +0.15. Try +0.05.
+                pos_y = int((center_y * p_height) + (p_height * 0.05))
             else:
                 # Place at "shoulders" approx
                 pos_y = int((center_y * p_height) - (target_height / 3))
