@@ -69,7 +69,7 @@ class ClothesManager:
             print(f"Error calculating next ID: {e}")
             return f"999" # Fallback
 
-    def add_clothing_item(self, name: str, height_range: str, gender: str, style: str) -> str:
+    def add_clothing_item(self, name: str, height_range: str, gender: str, style: str, category: str = "Upper-body") -> str:
         """
         Adds a new clothing item to the file and returns its ID.
         """
@@ -81,7 +81,8 @@ class ClothesManager:
             "name": name,
             "height_range": height_range,
             "gender": gender,
-            "style": style
+            "style": style,
+            "category": category
         }
         
         clothes.append(new_item)

@@ -137,21 +137,31 @@ class AIService:
             print(f"BG Removal failed: {e}")
             return img
 
-    def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body"):
+    def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body", category=None):
         """
         Try using free OOTDiffusion via Gradio Client.
         """
         try:
             from gradio_client import Client, handle_file
             
-            # Determine category
-            category = "Upper-body"
-            if "裙" in cloth_name or "洋裝" in cloth_name:
-                category = "Dress"
-            elif "褲" in cloth_name:
-                category = "Lower-body"
+            # Determine category: Use explicit first, else guess
+            if not category:
+                if "裙" in cloth_name or "洋裝" in cloth_name:
+                    category = "Dress"
+                elif "褲" in cloth_name:
+                    category = "Lower-body"
+                else:
+                    category = "Upper-body"
+
+            # Map our internal categories to OOTDiffusion's exact strings
+            # OOTD expects: 'Upper-body', 'Lower-body', 'Dress'
+            ootd_category = "Upper-body"
+            if category.lower() in ["lower-body", "lower_body", "bottom"]:
+                ootd_category = "Lower-body"
+            elif category.lower() in ["dress", "dresses", "whole-body", "whole_body"]:
+                ootd_category = "Dress"
             
-            print(f"Connecting to Gradio Space (OOTDiffusion) for {category}...")
+            print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category} (orig: {category})...")
             client = Client("levihsu/OOTDiffusion")
             
             # Save person bytes to temp file because gradio client needs path usually or handle_file
@@ -188,7 +198,7 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
-    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body") -> bytes:
+    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body") -> bytes:
         """
         Virtual Try-On Pipeline:
         1. Replicate (Paid, Best) - Skipped if no token.
@@ -201,8 +211,8 @@ class AIService:
              pass # In real file, keep replicate block
              
         # 2. Gradio (Free GenAI)
-        print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name}...")
-        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name)
+        print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
+        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category)
         if gen_img:
             return gen_img
             
@@ -231,8 +241,9 @@ class AIService:
             p_width, p_height = person_img.size
             
             # Adjust scaling and position based on type
-            is_lower = "褲" in cloth_name or "裙" in cloth_name or "lower" in cloth_name.lower()
-            is_dress = "洋裝" in cloth_name or "dress" in cloth_name.lower()
+            # Use explicit category if available
+            is_lower = category == "Lower-body" or "褲" in cloth_name or "裙" in cloth_name
+            is_dress = category == "Dress" or "洋裝" in cloth_name
             
             if is_lower and not is_dress:
                 # Pants/Skirt: Center lower, scaling might need to be different
