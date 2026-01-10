@@ -218,8 +218,7 @@ class AIService:
                 ootd_category = "Dress"
             
             # Smart Cropping for Length Control
-            # If height_ratio is provided and suggests a shorter garment, crop the bottom.
-            # Base assumption: Full Dress ~ 0.8, Full Skirt ~ 0.5
+            # Logic: Crop bottom -> Place on 3:4 Canvas
             proc_cloth_path = cloth_path
             
             if height_ratio:
@@ -233,25 +232,38 @@ class AIService:
                  # Logic: Calculate kept percentage
                  keep_ratio = 1.0
                  if ootd_category == "Dress":
-                     # Assume input is a "Maxi Dress" (approx 0.8 body length)
-                     # If user wants 0.5, we keep 0.5/0.8 = ~0.625 of the image height
-                     # But we should be conservative.
+                     # Base: Full Dress ~ 0.8
                      if height_ratio < 0.7:
                          keep_ratio = height_ratio / 0.8 
                  elif ootd_category == "Lower-body":
-                     # Assume input is "Maxi Skirt" (approx 0.6 body length)
+                     # Base: Full Skirt ~ 0.6
                      if height_ratio < 0.5:
                          keep_ratio = height_ratio / 0.6
                  
                  if keep_ratio < 0.95:
-                     keep_ratio = max(0.4, keep_ratio) # Don't crop too much (e.g. standard min)
+                     keep_ratio = max(0.4, keep_ratio)
                      new_h = int(h * keep_ratio)
-                     print(f"Cropping garment to {keep_ratio*100:.1f}% height to match ratio.")
-                     c_img = c_img.crop((0, 0, w, new_h))
+                     print(f"Cropping garment to {keep_ratio*100:.1f}% height")
+                     
+                     # 1. Crop
+                     cropped_img = c_img.crop((0, 0, w, new_h))
+                     
+                     # 2. Place on 3:4 Canvas (White Background)
+                     # Target aspect 3:4 (0.75)
+                     # Width is 'w'. Target height should be w / 0.75
+                     canvas_h = int(w / 0.75)
+                     # If original h was already 3:4, canvas_h ~= h.
+                     # But let's be safe and make sure we have a proper canvas.
+                     
+                     # Ensure canvas is at least as tall as crop
+                     canvas_h = max(canvas_h, new_h) 
+                     
+                     canvas = Image.new("RGB", (w, canvas_h), (255, 255, 255))
+                     canvas.paste(cropped_img, (0, 0))
                      
                      import tempfile
                      with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
-                         c_img.save(tf, format="JPEG")
+                         canvas.save(tf, format="JPEG")
                          proc_cloth_path = tf.name
 
             print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category} (orig: {category})...")
