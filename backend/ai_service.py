@@ -137,12 +137,66 @@ class AIService:
             print(f"BG Removal failed: {e}")
             return img
 
+    def _ensure_aspect_ratio(self, img_bytes, target_ratio=0.75): # 3:4 = 0.75
+        """
+        Resize/Pad image to match target aspect ratio (3:4) to prevent distortion.
+        Returns bytes of new image.
+        """
+        try:
+            from PIL import Image, ImageOps
+            img = Image.open(io.BytesIO(img_bytes))
+            
+            # Auto-orient (fix EXIF rotation) to ensure correct dimensions
+            img = ImageOps.exif_transpose(img)
+            
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+                
+            w, h = img.size
+            current_ratio = w / h
+            
+            # Tolerance
+            if abs(current_ratio - target_ratio) < 0.01:
+                return img_bytes
+                
+            # Need to pad
+            if current_ratio < target_ratio:
+                # Too tall (skinny) -> Add padding to sides to make it wider
+                new_w = int(h * target_ratio)
+                new_h = h
+                pad_color = (255, 255, 255) # Assuming white background
+                
+                new_img = Image.new("RGB", (new_w, new_h), pad_color)
+                offset_x = (new_w - w) // 2
+                new_img.paste(img, (offset_x, 0))
+                
+            else:
+                # Too wide -> Add padding to top/bottom
+                new_w = w
+                new_h = int(w / target_ratio)
+                pad_color = (255, 255, 255)
+                
+                new_img = Image.new("RGB", (new_w, new_h), pad_color)
+                offset_y = (new_h - h) // 2
+                new_img.paste(img, (0, offset_y))
+            
+            out_buf = io.BytesIO()
+            new_img.save(out_buf, format='JPEG', quality=95)
+            return out_buf.getvalue()
+            
+        except Exception as e:
+            print(f"Resize failed: {e}")
+            return img_bytes
+
     def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body", category=None):
         """
         Try using free OOTDiffusion via Gradio Client.
         """
         try:
             from gradio_client import Client, handle_file
+            
+            # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion
+            person_bytes = self._ensure_aspect_ratio(person_bytes)
             
             # Determine category: Use explicit first, else guess
             if not category:
