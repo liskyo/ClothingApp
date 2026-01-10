@@ -37,11 +37,69 @@ const fetchClothes = async () => {
   }
 }
 
-const onUserFileChange = (e: Event) => {
+const onUserFileChange = async (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
-    userFile.value = target.files[0]
-    userPhotoPreview.value = URL.createObjectURL(target.files[0])
+    const rawFile = target.files[0]
+    
+    // Show raw preview first
+    userPhotoPreview.value = URL.createObjectURL(rawFile)
+    
+    // Start Analysis
+    // Temporarily leverage the general loading state or a specific one?
+    // Let's use a quick indicator on the preview card
+    const isAnalyzing = ref(true) 
+    // We can't inject local var into template easily without ref.
+    // Let's add 'analyzingAvatar' state.
+    
+    // Call Backend
+    const formData = new FormData()
+    formData.append('file', rawFile)
+    
+    // Toast or Status? Use JS Alert for now as requested "Prompt"
+    // Better: Show visual "Scanning..."
+    loading.value = true // Reuse global loader for simplicity? Or confusing with TryOn?
+    // Confusing. Let's rely on alert/logic.
+    
+    try {
+        const res = await axios.post('/api/validate-avatar', formData, {
+            responseType: 'blob'
+        })
+        
+        // Success: AI says OK and returns cropped image
+        const processedBlob = res.data
+        const processedFile = new File([processedBlob], rawFile.name, { type: "image/jpeg" })
+        
+        userFile.value = processedFile
+        userPhotoPreview.value = URL.createObjectURL(processedBlob)
+        
+        // Optional: Notify success?
+        // alert("照片驗證成功！已自動調整最佳比例。")
+        
+    } catch (err: any) {
+        console.error(err)
+        // Failure: AI says Rejection
+        if (err.response && err.response.status === 400) {
+            // Read blob to text (messy in axios blob response)
+            // Axios blob response containing JSON error is tricky.
+            // Simplified: If status 400, it's validation error.
+            // We need to parse the blob to get value.
+            const errorBlob = err.response.data
+            const reader = new FileReader()
+            reader.onload = () => {
+                try {
+                     const parser = JSON.parse(reader.result as string)
+                     alert(`照片不符合試穿規格：\n${parser.message}\n\n請重新上傳單人、正面、清晰的全身照。`)
+                } catch {
+                     alert("照片不符合規格 (無法讀取原因)")
+                }
+            }
+            reader.readAsText(errorBlob)
+        } else {
+             alert('照片分析連線失敗，將使用原始照片。')
+             userFile.value = rawFile
+        }
+    }
   }
 }
 

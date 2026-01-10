@@ -377,6 +377,119 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
+    def validate_and_crop_user_photo(self, img_bytes: bytes) -> Dict:
+        """
+        Validate and Auto-Crop User Photo.
+        Returns:
+            {
+                "valid": bool,
+                "reason": str,
+                "processed_image": bytes (optional)
+            }
+        """
+        if not self.gemini_keys:
+             return {"valid": True, "reason": "No AI Key, skipping validation", "processed_image": img_bytes}
+
+        genai = self._get_genai_module()
+        if not genai:
+            return {"valid": True, "reason": "No AI Module", "processed_image": img_bytes}
+            
+        # 1. Gemini Analysis
+        prompt = """
+        請分析這張照片是否適合做虛擬試穿 (Virtual Try-On)。
+        標準：
+        1. "is_single": 是否只有一個主體人物？(True/False)
+        2. "is_front": 是否為正面或微側面朝前？背影或大側面不行。(True/False)
+        3. "is_full_body": 是否為全身照或至少包含膝蓋以上？僅大頭照不行。(True/False)
+        4. "is_clear": 影像是否清晰主體明確？(True/False)
+        5. "box_2d": 人物的 Bounding Box [ymin, xmin, ymax, xmax] (0-1000 範圍整數)。
+        
+        請嚴格判斷。若不符合，reason 請用繁體中文說明原因。
+        回傳 JSON: {"valid": bool, "reason": str, "box_2d": [ymin, xmin, ymax, xmax], "is_single": bool, "is_front": bool, "is_full_body": bool}
+        """
+        
+        image_part = {"mime_type": "image/jpeg", "data": img_bytes}
+        
+        # Simple Rotation for single call
+        key = self.gemini_keys[0] # Just use first key for this helper
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        processed_bytes = img_bytes
+        
+        try:
+            response = model.generate_content([prompt, image_part])
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(text)
+            
+            if not data.get("valid", False):
+                # Construct strict failure reason
+                reasons = []
+                if not data.get("is_single"): reasons.append("偵測到多人或無人")
+                if not data.get("is_front"): reasons.append("非正面拍攝")
+                if not data.get("is_full_body"): reasons.append("非全身照(需含膝蓋以上)")
+                
+                full_reason = "、".join(reasons)
+                if not full_reason: full_reason = data.get("reason", "照片不符規格")
+                
+                return {"valid": False, "reason": full_reason, "processed_image": None}
+            
+            # 2. Auto-Crop Logic
+            box = data.get("box_2d", [100, 100, 900, 900]) # ymin, xmin, ymax, xmax (0-1000)
+            
+            from PIL import Image
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            w, h = img.size
+            
+            # Normalize box to pixels
+            ymin = int(box[0] / 1000 * h)
+            xmin = int(box[1] / 1000 * w)
+            ymax = int(box[2] / 1000 * h)
+            xmax = int(box[3] / 1000 * w)
+            
+            # Person Dimensions
+            p_h = ymax - ymin
+            p_w = xmax - xmin
+            
+            # Target: Person Height = 75% of Canvas Height
+            # Target Canvas Height = p_h / 0.75
+            target_canvas_h = int(p_h / 0.75)
+            
+            # Target Aspect Ratio 3:4 (0.75)
+            # Target Canvas Width = target_canvas_h * 0.75 = p_h
+            target_canvas_w = int(target_canvas_h * 0.75)
+            
+            # Ensure canvas is wide enough for person
+            if target_canvas_w < p_w * 1.1: # Add 10% minimal side padding margin
+                target_canvas_w = int(p_w * 1.1)
+                target_canvas_h = int(target_canvas_w / 0.75) # Re-adjust height to match ratio
+            
+            # Create Canvas
+            canvas = Image.new("RGB", (target_canvas_w, target_canvas_h), (255, 255, 255))
+            
+            # Crop Person
+            person_crop = img.crop((xmin, ymin, xmax, ymax))
+            
+            # Paste Position: Bottom Center? Or Vertically Centered?
+            # User said: "Display frame 3/4 Size" -> usually implies centered with margins.
+            # Let's Center Vertically.
+            paste_x = (target_canvas_w - p_w) // 2
+            paste_y = (target_canvas_h - p_h) // 2
+            
+            canvas.paste(person_crop, (paste_x, paste_y))
+            
+            buf = io.BytesIO()
+            canvas.save(buf, format="JPEG", quality=95)
+            processed_bytes = buf.getvalue()
+            
+            return {"valid": True, "reason": "OK", "processed_image": processed_bytes}
+
+        except Exception as e:
+            print(f"Validation Error: {e}")
+            # On error, allow aggressive fallback? Or block?
+            # Let's allow but warn.
+            return {"valid": True, "reason": "AI 驗證連線失敗 (已略過)", "processed_image": img_bytes}
+
     def _add_watermark(self, img_bytes: bytes, text: str = "僅供穿搭參考，並非真實穿著效果") -> bytes:
         """
         Add a disclaimer watermark to the bottom of the image.

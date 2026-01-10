@@ -168,6 +168,36 @@ async def upload_clothing(
         print(f"Error processing upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+    except Exception as e:
+        print(f"Error processing upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/validate-avatar")
+async def validate_avatar(file: UploadFile = File(...)):
+    """
+    Validate and Auto-Crop user photo for Try-On.
+    """
+    try:
+        content = await file.read()
+        result = ai_service.validate_and_crop_user_photo(content)
+        
+        if not result["valid"]:
+             return JSONResponse(status_code=400, content={"message": result["reason"]})
+        
+        # If valid, return the processed image
+        # We need to return the bytes.
+        # But FastAPI return usually file or json.
+        # Let's return the file directly.
+        if result["processed_image"]:
+             return Response(content=result["processed_image"], media_type="image/jpeg")
+        else:
+             # Should not happen if valid image returned
+             return Response(content=content, media_type="image/jpeg")
+             
+    except Exception as e:
+        print(f"Validate error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/try-on")
 async def try_on(
     file: UploadFile = File(...), # User's photo
