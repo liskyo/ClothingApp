@@ -184,8 +184,12 @@ async def try_on(
 
         user_image = await file.read()
         
+        # Get clothes info
+        cloth_info = clothes_manager.get_cloth_by_id(clothes_id)
+        cloth_name = cloth_info['name'] if cloth_info else "Upper-body"
+        
         # Call AI VTON Service
-        result_image = ai_service.virtual_try_on(user_image, json_path)
+        result_image = ai_service.virtual_try_on(user_image, json_path, cloth_name=cloth_name)
         
         return Response(content=result_image, media_type="image/jpeg")
 

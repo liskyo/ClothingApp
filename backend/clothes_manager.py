@@ -41,6 +41,14 @@ class ClothesManager:
             print("Error decoding JSON. Returning empty list.")
             return []
 
+    def get_cloth_by_id(self, cloth_id: str) -> Optional[Dict]:
+        clothes = self.get_all_clothes()
+        for item in clothes:
+            # Handle both with and without extension in ID just in case
+            if item['id'] == cloth_id or item['id'] == cloth_id.replace('.jpg', ''):
+                return item
+        return None
+
     def get_next_id(self) -> str:
         clothes = self.get_all_clothes()
         if not clothes:
