@@ -198,16 +198,8 @@ class AIService:
             # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion
             person_bytes = self._ensure_aspect_ratio(person_bytes)
             
-            # PRE-PROCESS Garment: Also ensure 3:4 for the cloth image
-            with open(cloth_path, "rb") as f:
-                cloth_bytes = f.read()
-            cloth_bytes = self._ensure_aspect_ratio(cloth_bytes)
+            # PRE-PROCESS Garment: OOTD handles garment resizing internally.
             
-             # Save processed cloth to temp file
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-                f.write(cloth_bytes)
-                processed_cloth_path = f.name
-
             # Determine category: Use explicit first, else guess
             if not category:
                 if "裙" in cloth_name or "洋裝" in cloth_name:
@@ -237,11 +229,11 @@ class AIService:
             
             result = client.predict(
                 vton_img=handle_file(person_path),
-                garm_img=handle_file(processed_cloth_path), # Use processed cloth
+                garm_img=handle_file(cloth_path),
                 category=ootd_category,
                 n_samples=1,
-                n_steps=30, 
-                image_scale=3.5, # Slightly lowered from 4.0 for stability, still High Fidelity
+                n_steps=20, 
+                image_scale=2.0, 
                 seed=-1,
                 api_name="/process_dc"
             )
@@ -274,6 +266,7 @@ class AIService:
              # Just a placeholder for Replicate logic presence
              pass # In real file, keep replicate block
              
+        # 2. Gradio (Free GenAI)
         # 2. Gradio (Free GenAI)
         if method != 'overlay':
             print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
