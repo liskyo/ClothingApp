@@ -16,6 +16,24 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 DATA_FILE = os.path.join(MODEL_DIR, "clothes.json")
 
+# Debug Endpoint
+@app.get("/api/debug")
+async def debug_info():
+    try:
+        files = []
+        for root, dirs, filenames in os.walk(BASE_DIR):
+            for filename in filenames:
+                files.append(os.path.relpath(os.path.join(root, filename), BASE_DIR))
+        return {
+            "base_dir": BASE_DIR,
+            "model_dir": MODEL_DIR,
+            "data_file": DATA_FILE,
+            "exists": os.path.exists(DATA_FILE),
+            "files": files[:50] # Limit output
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 # Ensure model directory exists
 os.makedirs(MODEL_DIR, exist_ok=True)
 
