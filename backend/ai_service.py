@@ -188,7 +188,7 @@ class AIService:
             print(f"Resize failed: {e}")
             return img_bytes
 
-    def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body", category=None):
+    def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body", category=None, height_ratio=None):
         """
         Try using free OOTDiffusion via Gradio Client.
         """
@@ -217,6 +217,43 @@ class AIService:
             elif category.lower() in ["dress", "dresses", "whole-body", "whole_body"]:
                 ootd_category = "Dress"
             
+            # Smart Cropping for Length Control
+            # If height_ratio is provided and suggests a shorter garment, crop the bottom.
+            # Base assumption: Full Dress ~ 0.8, Full Skirt ~ 0.5
+            proc_cloth_path = cloth_path
+            
+            if height_ratio:
+                 print(f"Applying Smart Crop for height_ratio: {height_ratio}")
+                 from PIL import Image
+                 with open(cloth_path, "rb") as f:
+                     c_img = Image.open(f).convert("RGB")
+                 
+                 w, h = c_img.size
+                 
+                 # Logic: Calculate kept percentage
+                 keep_ratio = 1.0
+                 if ootd_category == "Dress":
+                     # Assume input is a "Maxi Dress" (approx 0.8 body length)
+                     # If user wants 0.5, we keep 0.5/0.8 = ~0.625 of the image height
+                     # But we should be conservative.
+                     if height_ratio < 0.7:
+                         keep_ratio = height_ratio / 0.8 
+                 elif ootd_category == "Lower-body":
+                     # Assume input is "Maxi Skirt" (approx 0.6 body length)
+                     if height_ratio < 0.5:
+                         keep_ratio = height_ratio / 0.6
+                 
+                 if keep_ratio < 0.95:
+                     keep_ratio = max(0.4, keep_ratio) # Don't crop too much (e.g. standard min)
+                     new_h = int(h * keep_ratio)
+                     print(f"Cropping garment to {keep_ratio*100:.1f}% height to match ratio.")
+                     c_img = c_img.crop((0, 0, w, new_h))
+                     
+                     import tempfile
+                     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+                         c_img.save(tf, format="JPEG")
+                         proc_cloth_path = tf.name
+
             print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category} (orig: {category})...")
             client = Client("levihsu/OOTDiffusion")
             
@@ -229,7 +266,7 @@ class AIService:
             
             result = client.predict(
                 vton_img=handle_file(person_path),
-                garm_img=handle_file(cloth_path),
+                garm_img=handle_file(proc_cloth_path), # Use processed path
                 category=ootd_category,
                 n_samples=1,
                 n_steps=20, 
@@ -270,7 +307,7 @@ class AIService:
         # 2. Gradio (Free GenAI)
         if method != 'overlay':
             print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
-            gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category)
+            gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category, height_ratio)
             if gen_img:
                 return gen_img
         else:
