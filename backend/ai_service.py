@@ -217,49 +217,63 @@ class AIService:
             elif category.lower() in ["dress", "dresses", "whole-body", "whole_body"]:
                 ootd_category = "Dress"
             
-            # Smart Cropping for Length Control
-            # Logic: Crop bottom -> Place on 3:4 Canvas
+            # Smart Resizing for Length Control (Visual Guide for AI)
+            # Logic: Resize (Shrink) garment -> Place on Canvas
+            # User Requirement: 0.5 means covers 0.5 of body. DO NOT CROP pixels.
             proc_cloth_path = cloth_path
             
             if height_ratio:
-                 print(f"Applying Smart Crop for height_ratio: {height_ratio}")
+                 print(f"Applying Smart Resize for height_ratio: {height_ratio}")
                  from PIL import Image
                  with open(cloth_path, "rb") as f:
                      c_img = Image.open(f).convert("RGB")
                  
                  w, h = c_img.size
                  
-                 # Logic: Calculate kept percentage
-                 keep_ratio = 1.0
-                 if ootd_category == "Dress":
-                     # Base: Full Dress ~ 0.8
-                     if height_ratio < 0.7:
-                         keep_ratio = height_ratio / 0.8 
-                 elif ootd_category == "Lower-body":
-                     # Base: Full Skirt ~ 0.6
-                     if height_ratio < 0.5:
-                         keep_ratio = height_ratio / 0.6
+                 # Base assumption: Input image usually fills the canvas (approx 80-90% coverage for a dress)
+                 # We want to scale it down to match user's requested coverage (e.g. 0.5)
                  
-                 if keep_ratio < 0.95:
-                     keep_ratio = max(0.4, keep_ratio)
-                     new_h = int(h * keep_ratio)
-                     print(f"Cropping garment to {keep_ratio*100:.1f}% height")
+                 base_coverage = 0.85  # Standard full dress covers ~85% of canvas height
+                 if ootd_category == "Lower-body":
+                     base_coverage = 0.6 # Standard skirt covers ~60% of canvas height (relative to full body?)
+                     # Actually OOTD 'Lower-body' input usually fills the frame too. 
+                     # Let's assume input image Height = 1.0 "Garment Unit"
+                     # And we want to scale it.
+                     pass
+                 
+                 # Simplified Logic: 
+                 # If user says 0.5 (Whole-body), and normally a dress is 0.8.
+                 # Scale Factor = 0.5 / 0.8 = 0.625
+                 
+                 target_scale = 1.0
+                 if ootd_category == "Dress":
+                     if height_ratio < 0.8:
+                         target_scale = height_ratio / 0.85
+                 elif ootd_category == "Lower-body":
+                     # For skirts, user said "0.33 of lower body".
+                     # If full skirt is ~0.8 of lower body? Or 1.0?
+                     # Let's assume standard input is "Long Skirt" (0.9 of legs).
+                     if height_ratio < 0.6:
+                         target_scale = height_ratio / 0.8
+                 
+                 if target_scale < 0.95:
+                     target_scale = max(0.3, target_scale)
+                     print(f"Resizing garment to {target_scale*100:.1f}% scale (Ratio: {height_ratio})")
                      
-                     # 1. Crop
-                     cropped_img = c_img.crop((0, 0, w, new_h))
+                     new_w = int(w * target_scale)
+                     new_h = int(h * target_scale)
                      
-                     # 2. Place on 3:4 Canvas (White Background)
-                     # Target aspect 3:4 (0.75)
-                     # Width is 'w'. Target height should be w / 0.75
-                     canvas_h = int(w / 0.75)
-                     # If original h was already 3:4, canvas_h ~= h.
-                     # But let's be safe and make sure we have a proper canvas.
+                     # 1. Resize (Lanczos for quality)
+                     resized_img = c_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                      
-                     # Ensure canvas is at least as tall as crop
-                     canvas_h = max(canvas_h, new_h) 
+                     # 2. Place on Canvas (Restore original dimensions to simulate 'smaller on body')
+                     # Create a white canvas of the ORIGINAL size (or 3:4 aspect)
+                     # Keeping original size preserves the 'relative' shrinking effect.
+                     canvas = Image.new("RGB", (w, h), (255, 255, 255))
                      
-                     canvas = Image.new("RGB", (w, canvas_h), (255, 255, 255))
-                     canvas.paste(cropped_img, (0, 0))
+                     # Paste at Top-Center
+                     offset_x = (w - new_w) // 2
+                     canvas.paste(resized_img, (offset_x, 0))
                      
                      import tempfile
                      with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
