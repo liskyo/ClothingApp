@@ -60,55 +60,97 @@ class AIService:
             print("Gemini module not available.")
             return self._mock_analysis()
 
-        # ... rest of the function continues ...
-        try:
-            # Placeholder for actual Gemini API call logic
-            # This part was missing from the original content, but implied by the error handling
-            # For now, it will just fall through to the mock response if no actual logic is added.
-            pass
-        except Exception as e:
-            print(f"Gemini API Error: {e}")
-            # Fallback to mock if API fails
+        # Prompt for Gemini
+        prompt = """
+        請分析這張衣服圖片。
+        請回傳一個 JSON 物件，包含以下兩個欄位：
+        1. "name": 給這件衣服一個簡短但有吸引力的名稱 (例如：日系碎花長裙、經典丹寧外套)。
+        2. "style": 這件衣服的風格 (例如：休閒、正式、街頭、復古、波西米亞)。
+        
+        請直接回傳 JSON，不要 markdown 格式。
+        """
 
-        # MOCK RESPONSE (Fallback)
-        return {
-            "name": "AI辨識之衣服(Mock)",
-            "style": "時尚休閒(Mock)"
+        # Prepare image part
+        image_part = {
+            "mime_type": "image/jpeg",
+            "data": image_bytes
         }
+
+        # Rotation Logic
+        errors = []
+        start_key_idx = random.randint(0, len(self.gemini_keys) - 1)
+        rotated_keys = self.gemini_keys[start_key_idx:] + self.gemini_keys[:start_key_idx]
+        
+        for key in rotated_keys:
+            genai.configure(api_key=key)
+            
+            for model_name in self.gemini_models:
+                try:
+                    print(f"Trying Gemini with Key ending in ...{key[-4:]} and Model {model_name}")
+                    model = genai.GenerativeModel(model_name)
+                    
+                    response = model.generate_content([prompt, image_part])
+                    
+                    text = response.text
+                    # clean json
+                    text = text.replace("```json", "").replace("```", "").strip()
+                    
+                    result = json.loads(text)
+                    return result
+
+                except Exception as e:
+                    error_msg = str(e)
+                    errors.append(f"Key(...{key[-4:]})/{model_name}: {error_msg}")
+                    
+                    # Rate Limit handling
+                    if "429" in error_msg or "Quota" in error_msg:
+                        print(f"  -> Quota exceeded. Switching key...")
+                        break # Break model loop to try next key
+                        
+                    # Model Not Found handling
+                    if "404" in error_msg or "not found" in error_msg:
+                        print(f"  -> Model not found. Switching model...")
+                        continue # Next model
+                    
+                    print(f"  -> Error: {error_msg}")
+                    
+        print("All Gemini attempts failed.")
+        print("\n".join(errors))
+        return self._mock_analysis()
 
     def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str) -> bytes:
         """
         Virtual Try-On using Replicate (IDM-VTON) if key exists.
         """
-        if self.replicate_token:
-            try:
-                import io
-                
-                # Replicate client expects a file-like object for image input
-                # We wrap the bytes in BytesIO
-                
-                with open(cloth_img_path, "rb") as cloth_file:
-                    # IDM-VTON model on Replicate
-                    # Using cuuupid/idm-vton with validated version hash
-                    output = replicate.run(
-                        "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985",
-                        input={
-                            "human_img": io.BytesIO(person_img_bytes),
-                            "garm_img": cloth_file,
-                            "garment_des": "clothing",  # Optional description
-                        }
-                    )
-                    # Output is usually a URI string or list of URIs
-                    # We need to fetch the image from the URL
-                    if output:
-                        import requests
-                        img_url = output if isinstance(output, str) else output[0]
-                        res = requests.get(img_url)
-                        return res.content
+        if not self.replicate_token:
+             return person_img_bytes
 
-            except Exception as e:
-                print(f"Replicate API Error: {e}")
-                # Fallback
+        replicate = self._get_replicate_module()
+        if not replicate:
+            print("Replicate module not available.")
+            return person_img_bytes
 
-        # MOCK RESPONSE
+        try:
+            # Replicate client expects a file-like object for image input
+            with open(cloth_img_path, "rb") as cloth_file:
+                # IDM-VTON model on Replicate
+                output = replicate.run(
+                    "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985",
+                    input={
+                        "human_img": io.BytesIO(person_img_bytes),
+                        "garm_img": cloth_file,
+                        "garment_des": "clothing",
+                    }
+                )
+                
+                if output:
+                    import requests
+                    img_url = output if isinstance(output, str) else output[0]
+                    res = requests.get(img_url)
+                    return res.content
+
+        except Exception as e:
+            print(f"Replicate API Error: {e}")
+            
+        # Fallback
         return person_img_bytes
