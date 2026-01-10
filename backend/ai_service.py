@@ -176,8 +176,8 @@ class AIService:
                 garm_img=handle_file(cloth_path),
                 category=ootd_category,
                 n_samples=1,
-                n_steps=20,
-                image_scale=2,
+                n_steps=30, # Increased for better quality (orig: 20)
+                image_scale=2.5, # Increased for better adherence to cloth style (orig: 2.0)
                 seed=-1,
                 api_name="/process_dc"
             )
