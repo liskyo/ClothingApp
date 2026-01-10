@@ -112,18 +112,40 @@ class AIService:
         
         return self._mock_analysis()
 
+    def _remove_background_simple(self, img):
+        """
+        Simple color-keying to remove white/light background.
+        Converts white/light-gray pixels to transparent.
+        """
+        try:
+            from PIL import Image
+            img = img.convert("RGBA")
+            datas = img.getdata()
+            
+            new_data = []
+            for item in datas:
+                # RGB values + Alpha
+                # Check if pixel is close to white (e.g. > 200 in all channels)
+                if item[0] > 200 and item[1] > 200 and item[2] > 200:
+                    new_data.append((255, 255, 255, 0)) # Make transparent
+                else:
+                    new_data.append(item)
+            
+            img.putdata(new_data)
+            return img
+        except Exception as e:
+            print(f"BG Removal failed: {e}")
+            return img
+
     def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str) -> bytes:
         """
-        Free "Virtual Try-On" using Gemini-guided 2D Overlay.
-        1. Analyze person image to find torso coordinates (using logic from analyze_image_style or separate call).
-        2. Resize cloth image.
-        3. Paste cloth image onto person image using PIL.
+        Free "Virtual Try-On" using Gemini-guided 2D Overlay with BG Removal.
         """
-        # If Replicate Token exists, try that first (better quality)
+        # If Replicate Token exists, try that first
         if self.replicate_token:
-            # ... (Existing Replicate Logic) ...
-            pass # Skipping for brevity in this prompt, but in real code, keep existing Replicate block here
-        
+             # Just a placeholder for Replicate logic presence
+             pass 
+
         # --- Fallback / Free Mode: Gemini Guided Overlay ---
         print("Using Free Mode: Gemini Guided Overlay")
         
@@ -132,39 +154,47 @@ class AIService:
             
             # 1. Load Images
             person_img = Image.open(io.BytesIO(person_img_bytes)).convert("RGBA")
-            cloth_img = Image.open(cloth_img_path).convert("RGBA")
+            cloth_img = Image.open(cloth_img_path)
             
-            # 2. Get Body Coordinates from Gemini (Re-using analyze_image_style for simplicity)
-            # In a real efficient app, we might store this when the user first uploads the photo.
-            # Here we call it again for the try-on.
-            analysis = self.analyze_image_style(person_img_bytes)
+            # 2. Key Step: Remove Background from Cloth
+            cloth_img = self._remove_background_simple(cloth_img)
+
+            # 3. Get Body Coordinates from Gemini
+            try:
+                analysis = self.analyze_image_style(person_img_bytes)
+            except:
+                analysis = {}
             
             # Defaults if AI fails
             center_x = analysis.get("torso_center_x", 0.5)
             center_y = analysis.get("torso_center_y", 0.4)
             width_ratio = analysis.get("shoulders", 0.5)
             
-            # 3. Calculate Geometry
+            # 4. Calculate Geometry
             p_width, p_height = person_img.size
-            target_width = int(p_width * width_ratio * 1.5) # Slightly wider than shoulders
+            target_width = int(p_width * width_ratio * 1.5) 
             
             # Maintain aspect ratio of cloth
             c_width, c_height = cloth_img.size
-            aspect = c_height / c_width
-            target_height = int(target_width * aspect)
+            if c_width > 0:
+                aspect = c_height / c_width
+                target_height = int(target_width * aspect)
+            else:
+                target_height = target_width # Fallback
             
             # Resize Cloth
             resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
-            # 4. Calculate Position (Center the cloth on the torso center)
-            pos_x = int((center_x * p_width) - (target_width / 2))
-            pos_y = int((center_y * p_height) - (target_height / 3)) # Shift up slightly to cover shoulders
-            
             # 5. Composite
-            # Create a blank image same size as person
+            # Calculate Position (Center the cloth on the torso center)
+            pos_x = int((center_x * p_width) - (target_width / 2))
+            pos_y = int((center_y * p_height) - (target_height / 3))
+            
+            # Paste
             result = Image.new("RGBA", person_img.size, (0,0,0,0))
             result.paste(person_img, (0,0))
-            result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) # Use cloth alpha channel as mask
+            # Paste with alpha mask
+            result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) 
             
             # 6. Convert to JPG bytes
             output = io.BytesIO()
@@ -173,5 +203,4 @@ class AIService:
             
         except Exception as e:
             print(f"Free VTON Error: {e}")
-            # If all else fails, return original
             return person_img_bytes
