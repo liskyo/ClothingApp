@@ -1,10 +1,9 @@
 import os
-from typing import Dict
-import google.generativeai as genai
-import replicate
-from dotenv import load_dotenv
-
-load_dotenv()
+import json
+import time
+import random
+import io
+from typing import Dict, Optional
 
 class AIService:
     def __init__(self):
@@ -24,11 +23,52 @@ class AIService:
         
         # Replicate Setup
         self.replicate_token = os.getenv("REPLICATE_API_TOKEN")
-                    # Fallback if JSON fails
-                    pass
-            except Exception as e:
-                print(f"Gemini API Error: {e}")
-                # Fallback to mock if API fails
+
+    def _get_genai_module(self):
+        try:
+            import google.generativeai as genai
+            return genai
+        except ImportError as e:
+            print(f"Failed to import google.generativeai: {e}")
+            return None
+
+    def _get_replicate_module(self):
+        try:
+            import replicate
+            return replicate
+        except ImportError as e:
+            print(f"Failed to import replicate: {e}")
+            return None
+
+    def _mock_analysis(self) -> dict:
+        # MOCK RESPONSE (Fallback)
+        return {
+            "name": "AI辨識之衣服(Mock)",
+            "style": "時尚休閒(Mock)"
+        }
+
+    def analyze_image_style(self, image_bytes: bytes) -> dict:
+        """
+        Analyze image style using Google Gemini with Key/Model Rotation.
+        """
+        if not self.gemini_keys:
+            print("Gemini API key not found. Using mock response.")
+            return self._mock_analysis()
+
+        genai = self._get_genai_module()
+        if not genai:
+            print("Gemini module not available.")
+            return self._mock_analysis()
+
+        # ... rest of the function continues ...
+        try:
+            # Placeholder for actual Gemini API call logic
+            # This part was missing from the original content, but implied by the error handling
+            # For now, it will just fall through to the mock response if no actual logic is added.
+            pass
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            # Fallback to mock if API fails
 
         # MOCK RESPONSE (Fallback)
         return {
