@@ -137,40 +137,103 @@ class AIService:
             print(f"BG Removal failed: {e}")
             return img
 
+    def _try_on_gradio(self, person_bytes, cloth_path, cloth_name="Upper-body"):
+        """
+        Try using free OOTDiffusion via Gradio Client.
+        """
+        try:
+            from gradio_client import Client, handle_file
+            
+            # Determine category
+            category = "Upper-body"
+            if "裙" in cloth_name or "洋裝" in cloth_name:
+                category = "Dress"
+            elif "褲" in cloth_name:
+                category = "Lower-body"
+            
+            print(f"Connecting to Gradio Space (OOTDiffusion) for {category}...")
+            client = Client("levihsu/OOTDiffusion")
+            
+            # Save person bytes to temp file because gradio client needs path usually or handle_file
+            # Actually handle_file can wrap a path. We need to save bytes to disk first.
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f.write(person_bytes)
+                person_path = f.name
+            
+            result = client.predict(
+                vton_img=handle_file(person_path),
+                garm_img=handle_file(cloth_path),
+                category=category,
+                n_samples=1,
+                n_steps=20,
+                image_scale=2,
+                seed=-1,
+                api_name="/process_dc"
+            )
+            
+            # Result is a list of dicts or paths depending on return type.
+            # inspection says: [Gallery] output: List[Dict(image: filepath, caption: str | None)]
+            if result and len(result) > 0:
+                first_img = result[0]['image']
+                
+                # Check if it's a path or url
+                import shutil
+                with open(first_img, "rb") as r:
+                    return r.read()
+                    
+            return None
+            
+        except Exception as e:
+            print(f"Gradio VTON Failed: {e}")
+            return None
+
     def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str) -> bytes:
         """
-        Free "Virtual Try-On" using Gemini-guided 2D Overlay with BG Removal.
+        Virtual Try-On Pipeline:
+        1. Replicate (Paid, Best) - Skipped if no token.
+        2. Gradio OOTDiffusion (Free, Slow, GenAI) - New!
+        3. Gemini Overlay (Free, Fast, 2D) - Fallback.
         """
-        # If Replicate Token exists, try that first
+        # 1. Replicate (Paid)
         if self.replicate_token:
              # Just a placeholder for Replicate logic presence
-             pass 
-
-        # --- Fallback / Free Mode: Gemini Guided Overlay ---
+             pass # In real file, keep replicate block
+             
+        # 2. Gradio (Free GenAI)
+        print("Attempting OOTDiffusion (Free GenAI)...")
+        # Ensure we have cloth name or default
+        # Ideally we pass cloth info to this function, but signature only has path.
+        # We'll guess category from filename or just default.
+        # Check if we can get name from path (e.g. model/001.jpg -> we don't know name here easily without lookup)
+        # We will default logic inside _try_on_gradio
+        
+        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path)
+        if gen_img:
+            return gen_img
+            
+        # 3. Fallback / Free Mode: Gemini Guided Overlay
         print("Using Free Mode: Gemini Guided Overlay")
         
         try:
             from PIL import Image, ImageOps
             
-            # 1. Load Images
+            # ... (Overlay Logic) ...
             person_img = Image.open(io.BytesIO(person_img_bytes)).convert("RGBA")
             cloth_img = Image.open(cloth_img_path)
             
-            # 2. Key Step: Remove Background from Cloth
+            # Key Step: Remove Background from Cloth
             cloth_img = self._remove_background_simple(cloth_img)
 
-            # 3. Get Body Coordinates from Gemini
             try:
                 analysis = self.analyze_image_style(person_img_bytes)
             except:
                 analysis = {}
             
-            # Defaults if AI fails
             center_x = analysis.get("torso_center_x", 0.5)
             center_y = analysis.get("torso_center_y", 0.4)
             width_ratio = analysis.get("shoulders", 0.5)
             
-            # 4. Calculate Geometry
             p_width, p_height = person_img.size
             target_width = int(p_width * width_ratio * 1.5) 
             
@@ -182,21 +245,15 @@ class AIService:
             else:
                 target_height = target_width # Fallback
             
-            # Resize Cloth
             resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
-            # 5. Composite
-            # Calculate Position (Center the cloth on the torso center)
             pos_x = int((center_x * p_width) - (target_width / 2))
             pos_y = int((center_y * p_height) - (target_height / 3))
             
-            # Paste
             result = Image.new("RGBA", person_img.size, (0,0,0,0))
             result.paste(person_img, (0,0))
-            # Paste with alpha mask
             result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) 
             
-            # 6. Convert to JPG bytes
             output = io.BytesIO()
             result.convert("RGB").save(output, format="JPEG", quality=90)
             return output.getvalue()

@@ -1,0 +1,41 @@
+
+--- Checking KWai-Kolors/Kolors-Virtual-Try-On ---
+Client.predict() Usage Info
+---------------------------
+Named API endpoints: 0
+
+Unnamed API endpoints: 0
+
+
+--- SUCCESS: KWai-Kolors/Kolors-Virtual-Try-On ---
+
+--- Checking levihsu/OOTDiffusion ---
+Client.predict() Usage Info
+---------------------------
+Named API endpoints: 2
+
+ - predict(vton_img, garm_img, n_samples, n_steps, image_scale, seed, api_name="/process_hd") -> output
+    Parameters:
+     - [Image] vton_img: filepath (not required, defaults to:   handle_file("https://levihsu-ootdiffusion.hf.space/file=/tmp/gradio/2e0cca23e744c036b3905c4b6167371632942e1c/model_1.png"))  
+     - [Image] garm_img: filepath (not required, defaults to:   handle_file("https://levihsu-ootdiffusion.hf.space/file=/tmp/gradio/180d4e2a1139071a8685a5edee7ab24bcf1639f5/03244_00.jpg"))  
+     - [Slider] n_samples: float (not required, defaults to:   1)  (numeric value between 1 and 4) 
+     - [Slider] n_steps: float (not required, defaults to:   20)  (numeric value between 20 and 40) 
+     - [Slider] image_scale: float (not required, defaults to:   2.0)  (numeric value between 1.0 and 5.0) 
+     - [Slider] seed: float (not required, defaults to:   -1)  (numeric value between -1 and 2147483647) 
+    Returns:
+     - [Gallery] output: List[Dict(image: filepath, caption: str | None)] 
+
+ - predict(vton_img, garm_img, category, n_samples, n_steps, image_scale, seed, api_name="/process_dc") -> output
+    Parameters:
+     - [Image] vton_img: filepath (not required, defaults to:   handle_file("https://levihsu-ootdiffusion.hf.space/file=/tmp/gradio/aa9673ab8fa122b9c5cdccf326e5f6fc244bc89b/model_8.png"))  
+     - [Image] garm_img: filepath (not required, defaults to:   handle_file("https://levihsu-ootdiffusion.hf.space/file=/tmp/gradio/17c62353c027a67af6f4c6e8dccce54fba3e1e43/048554_1.jpg"))  
+     - [Dropdown] category: Literal['Upper-body', 'Lower-body', 'Dress'] (not required, defaults to:   Upper-body)  
+     - [Slider] n_samples: float (not required, defaults to:   1)  (numeric value between 1 and 4) 
+     - [Slider] n_steps: float (not required, defaults to:   20)  (numeric value between 20 and 40) 
+     - [Slider] image_scale: float (not required, defaults to:   2.0)  (numeric value between 1.0 and 5.0) 
+     - [Slider] seed: float (not required, defaults to:   -1)  (numeric value between -1 and 2147483647) 
+    Returns:
+     - [Gallery] output: List[Dict(image: filepath, caption: str | None)] 
+
+
+--- SUCCESS: levihsu/OOTDiffusion ---
