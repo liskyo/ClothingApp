@@ -177,7 +177,7 @@ class AIService:
                 category=ootd_category,
                 n_samples=1,
                 n_steps=30, 
-                image_scale=4.0, # Maximized for strict adherence to minimize hallucinations
+                image_scale=3.5, # Slightly lowered from 4.0 for stability, still High Fidelity
                 seed=-1,
                 api_name="/process_dc"
             )
@@ -288,4 +288,4 @@ class AIService:
             
         except Exception as e:
             print(f"Free VTON Error: {e}")
-            return person_img_bytes
+            raise e
