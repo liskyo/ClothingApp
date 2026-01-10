@@ -217,68 +217,126 @@ class AIService:
             elif category.lower() in ["dress", "dresses", "whole-body", "whole_body"]:
                 ootd_category = "Dress"
             
-            # Smart Resizing for Length Control (Visual Guide for AI)
-            # Logic: Resize (Shrink) garment -> Place on Canvas
-            # User Requirement: 0.5 means covers 0.5 of body. DO NOT CROP pixels.
-            proc_cloth_path = cloth_path
+            # Garment Normalization & Resizing Logic
+            # Goal: Enforce "Standard/Full" size by default, or "Specific" size if height_ratio is set.
+            # 1. Trim Whitespace (to get true garment size)
+            # 2. Scale to target (Default or Custom)
+            # 3. Paste on 3:4 Canvas
+            
+            from PIL import Image, ImageChops
+            
+            def trim(im):
+                bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
+                diff = ImageChops.difference(im, bg)
+                diff = ImageChops.add(diff, diff, 2.0, -100)
+                bbox = diff.getbbox()
+                if bbox:
+                    return im.crop(bbox)
+                return im
+
+            with open(cloth_path, "rb") as f:
+                raw_c_img = Image.open(f).convert("RGB")
+            
+            # 1. Trim (Remove borders)
+            c_img_trimmed = trim(raw_c_img)
+            w, h = c_img_trimmed.size
+            
+            # 2. Determine Target Scale (relative to 3:4 Canvas)
+            # We will construct a canvas of width = w_canvas (fixed arbitrary or relative)
+            # Let's use a high resolution canvas, e.g., width=768 (standard OOTD width)
+            canvas_w = 768
+            canvas_h = 1024 # 3:4 aspect
+            
+            # Determine how much of the canvas height the garment should cover
+            target_coverage_h = 0.0
             
             if height_ratio:
-                 print(f"Applying Smart Resize for height_ratio: {height_ratio}")
-                 from PIL import Image
-                 with open(cloth_path, "rb") as f:
-                     c_img = Image.open(f).convert("RGB")
+                 print(f"Custom Height Ratio: {height_ratio}")
+                 # User specified ratio (e.g. 0.5 of body)
+                 # Map this to canvas height.
+                 # Body is approx 90% of canvas height normally? 
+                 # Let's simplify: 
+                 # Dress/Whole-body: 0.5 ratio -> 0.5 of canvas (approx)
+                 # Upper-body: 0.5 ratio -> is that half shirt?
+                 # Let's map directly to canvas height % for simplicity, or relative to 'Standard'
                  
-                 w, h = c_img.size
-                 
-                 # Base assumption: Input image usually fills the canvas (approx 80-90% coverage for a dress)
-                 # We want to scale it down to match user's requested coverage (e.g. 0.5)
-                 
-                 base_coverage = 0.85  # Standard full dress covers ~85% of canvas height
-                 if ootd_category == "Lower-body":
-                     base_coverage = 0.6 # Standard skirt covers ~60% of canvas height (relative to full body?)
-                     # Actually OOTD 'Lower-body' input usually fills the frame too. 
-                     # Let's assume input image Height = 1.0 "Garment Unit"
-                     # And we want to scale it.
-                     pass
-                 
-                 # Simplified Logic: 
-                 # If user says 0.5 (Whole-body), and normally a dress is 0.8.
-                 # Scale Factor = 0.5 / 0.8 = 0.625
-                 
-                 target_scale = 1.0
+                 # Refined mapping:
                  if ootd_category == "Dress":
-                     if height_ratio < 0.8:
-                         target_scale = height_ratio / 0.85
+                     # Standard Dress ~ 0.85
+                     target_coverage_h = height_ratio
                  elif ootd_category == "Lower-body":
-                     # For skirts, user said "0.33 of lower body".
-                     # If full skirt is ~0.8 of lower body? Or 1.0?
-                     # Let's assume standard input is "Long Skirt" (0.9 of legs).
-                     if height_ratio < 0.6:
-                         target_scale = height_ratio / 0.8
-                 
-                 if target_scale < 0.95:
-                     target_scale = max(0.3, target_scale)
-                     print(f"Resizing garment to {target_scale*100:.1f}% scale (Ratio: {height_ratio})")
-                     
-                     new_w = int(w * target_scale)
-                     new_h = int(h * target_scale)
-                     
-                     # 1. Resize (Lanczos for quality)
-                     resized_img = c_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                     
-                     # 2. Place on Canvas (Restore original dimensions to simulate 'smaller on body')
-                     # Create a white canvas of the ORIGINAL size (or 3:4 aspect)
-                     # Keeping original size preserves the 'relative' shrinking effect.
-                     canvas = Image.new("RGB", (w, h), (255, 255, 255))
-                     
-                     # Paste at Top-Center
-                     offset_x = (w - new_w) // 2
-                     canvas.paste(resized_img, (offset_x, 0))
-                     
-                     import tempfile
-                     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
-                         canvas.save(tf, format="JPEG")
-                         proc_cloth_path = tf.name
+                     # Standard Skirt ~ 0.6
+                     target_coverage_h = height_ratio
+                 else:
+                     # Upper body default
+                     target_coverage_h = height_ratio
+            else:
+                 # DEFAULT: FULL COVERAGE (User Request)
+                 print(f"Default Full Coverage for {ootd_category}")
+                 if ootd_category == "Dress":
+                     target_coverage_h = 0.85 # Long dress
+                 elif ootd_category == "Lower-body":
+                     target_coverage_h = 0.65 # Long pants/skirt
+                 else:
+                     # Upper-body: usually defined by Width, not Height.
+                     target_coverage_h = 0.0 # Use width mode
+            
+            # Calculate resize dimensions
+            final_w, final_h = w, h
+            
+            if target_coverage_h > 0:
+                # Resize based on Height
+                # Goal height = canvas_h * target_coverage_h
+                goal_h = int(canvas_h * target_coverage_h)
+                
+                # Aspect ratio
+                aspect = w / h
+                goal_w = int(goal_h * aspect)
+                
+                # Constraint: Don't exceed canvas width
+                if goal_w > canvas_w * 0.9:
+                    goal_w = int(canvas_w * 0.9)
+                    goal_h = int(goal_w / aspect)
+                
+                final_w, final_h = goal_w, goal_h
+            else:
+                # Resize based on Width (Standard Upper Body)
+                # Fill ~90% of width
+                goal_w = int(canvas_w * 0.9)
+                aspect = h / w 
+                goal_h = int(goal_w * aspect)
+                final_w, final_h = goal_w, goal_h
+
+            print(f"Resizing garment to {final_w}x{final_h} (Canvas: {canvas_w}x{canvas_h})")
+            
+            # Resize
+            resized_img = c_img_trimmed.resize((final_w, final_h), Image.Resampling.LANCZOS)
+            
+            # 3. Create Canvas and Paste
+            canvas = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+            
+            # Paste Position: Top Center (with slight margin top)
+            paste_x = (canvas_w - final_w) // 2
+            paste_y = 0
+            
+            # For Upper-body, usually top align is fine.
+            # For Lower-body, OOTD usually expects them Centered or slightly lower? 
+            # Actually OOTD pre-processor handles 'Lower-body' input by looking for the object. 
+            # But standardizing to Top-Center on a White Canvas is the safest "Clean Input".
+            if ootd_category == "Lower-body":
+                 # Maybe center vertically? No, standard OOTD inputs are usually full images.
+                 # Let's stick to Top-Center but add clear margin if needed. 
+                 # Actually, top-aligning pants might make them look like high-waist.
+                 # Let's center vertically for Lower-body?
+                 # No, consistent top-align is safer for now.
+                 pass
+            
+            canvas.paste(resized_img, (paste_x, paste_y))
+            
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+                canvas.save(tf, format="JPEG")
+                proc_cloth_path = tf.name
 
             print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category} (orig: {category})...")
             client = Client("levihsu/OOTDiffusion")
