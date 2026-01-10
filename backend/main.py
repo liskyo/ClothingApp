@@ -29,20 +29,31 @@ async def debug_info():
             "model_dir": MODEL_DIR,
             "data_file": DATA_FILE,
             "exists": os.path.exists(DATA_FILE),
-            "files": files[:50] # Limit output
+            "files": files[:50], # Limit output
+            "env": {k: "***" for k in os.environ.keys()} # List env keys only
         }
     except Exception as e:
         return {"error": str(e)}
 
-# Ensure model directory exists
-os.makedirs(MODEL_DIR, exist_ok=True)
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "backend": "active"}
+
+# Ensure model directory exists - SKIP for Vercel (Read Only)
+# os.makedirs(MODEL_DIR, exist_ok=True)
 
 # Services
 clothes_manager = ClothesManager(DATA_FILE)
 ai_service = AIService()
 
 # Mount static files for accessing images
-app.mount("/images", StaticFiles(directory=MODEL_DIR), name="images")
+try:
+    if os.path.exists(MODEL_DIR):
+        app.mount("/images", StaticFiles(directory=MODEL_DIR), name="images")
+    else:
+        print(f"Warning: Model dir {MODEL_DIR} not found. Images will not load.")
+except Exception as e:
+    print(f"Failed to mount static files: {e}")
 
 @app.get("/api/clothes")
 async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None):
