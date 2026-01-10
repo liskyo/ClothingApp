@@ -5,14 +5,30 @@ from typing import List, Dict, Optional
 class ClothesManager:
     def __init__(self, data_file: str):
         self.data_file = data_file
+        # Try to resolve relative path if absolute path not found
+        if not os.path.exists(self.data_file):
+            # Fallback for Vercel: Look in the same directory as this file
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            possible_path = os.path.join(base_dir, "../model/clothes.json")
+            if os.path.exists(possible_path):
+                print(f"File found at alternative path: {possible_path}")
+                self.data_file = possible_path
+            
         self.ensure_file_exists()
 
     def ensure_file_exists(self):
-        if not os.path.exists(self.data_file):
-            print(f"Creating new data file at {self.data_file}")
-            # Initialize with empty list
+        # In Vercel (Read-Only), verifying existence is key. We cannot write.
+        if os.path.exists(self.data_file):
+            return
+
+        print(f"Warning: Data file not found at {self.data_file}")
+        # Only try to write if we are sure we can (e.g. not /var/task)
+        # But for now, let's try to catch the error to prevent crash
+        try:
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump([], f, ensure_ascii=False, indent=4)
+        except OSError as e:
+            print(f"Could not create data file (likely read-only FS): {e}")
 
     def get_all_clothes(self) -> List[Dict]:
         if not os.path.exists(self.data_file):
