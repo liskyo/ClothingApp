@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    @apply bg-slate-900 text-slate-100;
+    background-image:
+        radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+        radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
+    min-height: 100vh;
+}
+
+.glass-panel {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+}
+
+.input-tech {
+    @apply bg-slate-800/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all;
+}
+
+.btn-tech {
+    @apply bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:shadow-indigo-500/50 transition-all transform hover:-translate-y-0.5;
+}

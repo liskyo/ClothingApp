@@ -1,0 +1,72 @@
+[
+    {
+        "id": "001",
+        "name": "碎花裙",
+        "height_range": "150-165cm",
+        "gender": "女性",
+        "style": "時尚休閒(Mock)"
+    },
+    {
+        "id": "002",
+        "name": "陽光格紋襯衫",
+        "height_range": "140-160cm",
+        "gender": "男性",
+        "style": "經典休閒"
+    },
+    {
+        "id": "003",
+        "name": "熱帶印花襯衫",
+        "height_range": "140-160cm",
+        "gender": "中性",
+        "style": "度假休閒"
+    },
+    {
+        "id": "004",
+        "name": "AI辨識之衣服(Mock)",
+        "height_range": "160-180cm",
+        "gender": "中性",
+        "style": "時尚休閒(Mock)"
+    },
+    {
+        "id": "005",
+        "name": "AI辨識之衣服(Mock)",
+        "height_range": "160-180cm",
+        "gender": "男性",
+        "style": "時尚休閒(Mock)"
+    },
+    {
+        "id": "006",
+        "name": "牛仔褲",
+        "height_range": "150-170cm",
+        "gender": "女性",
+        "style": "時尚休閒(Mock)"
+    },
+    {
+        "id": "007",
+        "name": "甜心丹寧外套",
+        "height_range": "150-165cm",
+        "gender": "中性",
+        "style": "甜美休閒"
+    },
+    {
+        "id": "008",
+        "name": "小熊寬版牛仔褲",
+        "height_range": "150-165cm",
+        "gender": "男性",
+        "style": "童趣休閒"
+    },
+    {
+        "id": "009",
+        "name": "抽象圖案休閒寬褲",
+        "height_range": "150-170cm",
+        "gender": "中性",
+        "style": "藝術休閒"
+    },
+    {
+        "id": "010",
+        "name": "蘇格蘭短裙",
+        "height_range": "150-165cm",
+        "gender": "女性",
+        "style": "學院風格"
+    }
+]
