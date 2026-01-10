@@ -1,15 +1,33 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from typing import Optional, List
 import shutil
 import os
-import uuid
+# import uuid # Removed uuid
 
-from .clothes_manager import ClothesManager
-from .ai_service import AIService
+from backend.clothes_manager import ClothesManager
+from backend.ai_service import AIService
+from pydantic import BaseModel
 
 app = FastAPI()
+
+# Global Exception Handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal Server Error", "detail": str(exc)},
+    )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configuration
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,14 +55,26 @@ async def debug_info():
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "backend": "active"}
+    manager_status = "active" if clothes_manager else "failed"
+    ai_status = "active" if ai_service else "failed"
+    return {"status": "ok", "backend": "active", "managers": {"clothes": manager_status, "ai": ai_status}}
 
 # Ensure model directory exists - SKIP for Vercel (Read Only)
 # os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Services
-clothes_manager = ClothesManager(DATA_FILE)
-ai_service = AIService()
+# Services Initialization with Error Handling
+clothes_manager = None
+ai_service = None
+
+try:
+    clothes_manager = ClothesManager(DATA_FILE)
+except Exception as e:
+    print(f"Failed to init ClothesManager: {e}")
+
+try:
+    ai_service = AIService()
+except Exception as e:
+    print(f"Failed to init AIService: {e}")
 
 # Mount static files for accessing images
 try:
@@ -60,6 +90,9 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
     """
     Get list of clothes. Optional filters for gender and height.
     """
+    if not clothes_manager:
+        raise HTTPException(status_code=500, detail="ClothesManager failed to initialize")
+        
     try:
         all_clothes = clothes_manager.get_all_clothes()
         
