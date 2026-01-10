@@ -5,7 +5,8 @@
         "height_range": "150-165cm",
         "gender": "女性",
         "style": "時尚休閒(Mock)",
-        "category": "Whole-body"
+        "category": "Whole-body",
+        "height_ratio": 0.65
     },
     {
         "id": "002",
@@ -77,6 +78,7 @@
         "height_range": "150-165cm",
         "gender": "女性",
         "style": "學院風格",
-        "category": "Lower-body"
+        "category": "Lower-body",
+        "height_ratio": 0.33
     }
 ]

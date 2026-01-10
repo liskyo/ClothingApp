@@ -254,7 +254,7 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
-    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body", method: str = "auto") -> bytes:
+    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body", method: str = "auto", height_ratio: float = None) -> bytes:
         """
         Virtual Try-On Pipeline:
         1. Replicate (Paid, Best) - Skipped if no token.
@@ -314,7 +314,16 @@ class AIService:
             
             # Maintain aspect ratio of cloth
             c_width, c_height = cloth_img.size
-            if c_width > 0:
+            
+            # Explicit proportion override (User requested JSON control)
+            if height_ratio and height_ratio > 0:
+                print(f"Using explicit height ratio from JSON: {height_ratio}")
+                target_height = int(p_height * height_ratio)
+                if c_height > 0:
+                     # Recalculate width to maintain aspect
+                     aspect = c_width / c_height
+                     target_width = int(target_height * aspect)
+            elif c_width > 0:
                 aspect = c_height / c_width
                 target_height = int(target_width * aspect)
             else:

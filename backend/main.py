@@ -189,6 +189,7 @@ async def try_on(
         cloth_name = cloth_info['name'] if cloth_info else "Upper-body"
         category = cloth_info.get('category', 'Upper-body') if cloth_info else "Upper-body"
         try_on_method = cloth_info.get('try_on_method', 'auto') if cloth_info else 'auto'
+        height_ratio = cloth_info.get('height_ratio', None) if cloth_info else None
         
         # Call AI VTON Service
         result_image = ai_service.virtual_try_on(
@@ -196,7 +197,8 @@ async def try_on(
             json_path, 
             cloth_name=cloth_name, 
             category=category,
-            method=try_on_method
+            method=try_on_method,
+            height_ratio=height_ratio
         )
         
         return Response(content=result_image, media_type="image/jpeg")
