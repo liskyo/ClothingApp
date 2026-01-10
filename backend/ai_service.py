@@ -377,6 +377,63 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
+    def _add_watermark(self, img_bytes: bytes, text: str = "僅供穿搭參考，並非真實穿著效果") -> bytes:
+        """
+        Add a disclaimer watermark to the bottom of the image.
+        """
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            draw = ImageDraw.Draw(img)
+            w, h = img.size
+            
+            # Font Setup
+            # Try loading standard Chinese font on Windows
+            font_path = "C:/Windows/Fonts/msjh.ttc" 
+            if not os.path.exists(font_path):
+                 # Fallback to standard arial if Chinese font missing (unlikely on TW Windows)
+                 font_path = "arial.ttf"
+            
+            # Dynamic font size (approx 2.5% of image height)
+            font_size = int(h * 0.025)
+            font_size = max(16, font_size) # Min size
+            
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+            except:
+                font = ImageFont.load_default()
+            
+            # Calculate Text Size
+            # getting text bbox: left, top, right, bottom
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            
+            # Position: Bottom Center with padding
+            x = (w - text_w) // 2
+            y = h - text_h - 20 # 20px padding from bottom
+            
+            # Draw Outline (Shadow) for visibility
+            outline_color = (0, 0, 0)
+            text_color = (255, 255, 255)
+            
+            # Draw outline by drawing text at offsets
+            draw.text((x-1, y-1), text, font=font, fill=outline_color)
+            draw.text((x+1, y-1), text, font=font, fill=outline_color)
+            draw.text((x-1, y+1), text, font=font, fill=outline_color)
+            draw.text((x+1, y+1), text, font=font, fill=outline_color)
+            
+            # Draw Main Text
+            draw.text((x, y), text, font=font, fill=text_color)
+            
+            output = io.BytesIO()
+            img.save(output, format="JPEG", quality=95)
+            return output.getvalue()
+            
+        except Exception as e:
+            print(f"Watermark failed: {e}")
+            return img_bytes
+
     def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body", method: str = "auto", height_ratio: float = None) -> bytes:
         """
         Virtual Try-On Pipeline:
@@ -384,97 +441,103 @@ class AIService:
         2. Gradio OOTDiffusion (Free, Slow, GenAI) - Skipped if method='overlay'
         3. Gemini Overlay (Free, Fast, 2D) - Fallback or Explicit.
         """
+        
+        final_result_bytes = None
+        
         # 1. Replicate (Paid)
         if self.replicate_token and method != 'overlay':
              # Just a placeholder for Replicate logic presence
-             pass # In real file, keep replicate block
+             pass 
              
         # 2. Gradio (Free GenAI)
-        # 2. Gradio (Free GenAI)
-        if method != 'overlay':
+        if method != 'overlay' and not final_result_bytes:
             print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
             gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category, height_ratio)
             if gen_img:
-                return gen_img
-        else:
+                final_result_bytes = gen_img
+        elif method == 'overlay':
             print(f"Skipping GenAI due to explicit method='{method}'")
             
         # 3. Fallback / Free Mode: Gemini Guided Overlay
-        print("Using Free Mode: Gemini Guided Overlay")
-        
-        try:
-            from PIL import Image, ImageOps
-            
-            # ... (Overlay Logic) ...
-            person_img = Image.open(io.BytesIO(person_img_bytes)).convert("RGBA")
-            cloth_img = Image.open(cloth_img_path)
-            
-            # Key Step: Remove Background from Cloth
-            cloth_img = self._remove_background_simple(cloth_img)
-
+        if not final_result_bytes:
+            print("Using Free Mode: Gemini Guided Overlay")
             try:
-                analysis = self.analyze_image_style(person_img_bytes)
-            except:
-                analysis = {}
+                from PIL import Image, ImageOps
+                
+                # ... (Overlay Logic) ...
+                person_img = Image.open(io.BytesIO(person_img_bytes)).convert("RGBA")
+                cloth_img = Image.open(cloth_img_path)
+                
+                # Key Step: Remove Background from Cloth
+                cloth_img = self._remove_background_simple(cloth_img)
+
+                try:
+                    analysis = self.analyze_image_style(person_img_bytes)
+                except:
+                    analysis = {}
+                
+                center_x = analysis.get("torso_center_x", 0.5)
+                center_y = analysis.get("torso_center_y", 0.4)
+                width_ratio = analysis.get("shoulders", 0.5)
+                
+                p_width, p_height = person_img.size
+                
+                # Adjust scaling and position based on type
+                # Use explicit category if available
+                is_lower = category in ["Lower-body", "lower-body"] or "褲" in cloth_name or "裙" in cloth_name
+                is_dress = category in ["Dress", "Whole-body", "whole-body", "One-piece"] or "洋裝" in cloth_name
+                
+                if is_lower and not is_dress:
+                    # Pants/Skirt: Center lower
+                    target_width = int(p_width * width_ratio * 1.3)
+                else:
+                    # Shirt/Dress
+                    target_width = int(p_width * width_ratio * 1.5) 
+                
+                # Maintain aspect ratio of cloth
+                c_width, c_height = cloth_img.size
+                
+                # Explicit proportion override (User requested JSON control)
+                if height_ratio and height_ratio > 0:
+                    print(f"Using explicit height ratio from JSON: {height_ratio}")
+                    target_height = int(p_height * height_ratio)
+                    if c_height > 0:
+                         # Recalculate width to maintain aspect
+                         aspect = c_width / c_height
+                         target_width = int(target_height * aspect)
+                elif c_width > 0:
+                    aspect = c_height / c_width
+                    target_height = int(target_width * aspect)
+                else:
+                    target_height = target_width # Fallback
+                
+                resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                
+                # Calculate Position
+                pos_x = int((center_x * p_width) - (target_width / 2))
+                
+                if is_lower and not is_dress:
+                    # Place at "waist" approx
+                    pos_y = int((center_y * p_height) + (p_height * 0.05))
+                else:
+                    # Place at "shoulders" approx
+                    pos_y = int((center_y * p_height) - (target_height / 3))
+                
+                result = Image.new("RGBA", person_img.size, (0,0,0,0))
+                result.paste(person_img, (0,0))
+                result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) 
+                
+                output = io.BytesIO()
+                result.convert("RGB").save(output, format="JPEG", quality=90)
+                final_result_bytes = output.getvalue()
+                
+            except Exception as e:
+                print(f"Free VTON Error: {e}")
+                raise e
+        
+        # 4. Post-Process: Add Watermark (Prompt)
+        if final_result_bytes:
+            print("Adding Disclaimer Watermark...")
+            final_result_bytes = self._add_watermark(final_result_bytes)
             
-            center_x = analysis.get("torso_center_x", 0.5)
-            center_y = analysis.get("torso_center_y", 0.4)
-            width_ratio = analysis.get("shoulders", 0.5)
-            
-            p_width, p_height = person_img.size
-            
-            # Adjust scaling and position based on type
-            # Use explicit category if available
-            is_lower = category in ["Lower-body", "lower-body"] or "褲" in cloth_name or "裙" in cloth_name
-            is_dress = category in ["Dress", "Whole-body", "whole-body", "One-piece"] or "洋裝" in cloth_name
-            
-            if is_lower and not is_dress:
-                # Pants/Skirt: Center lower
-                target_width = int(p_width * width_ratio * 1.3)
-            else:
-                # Shirt/Dress
-                target_width = int(p_width * width_ratio * 1.5) 
-            
-            # Maintain aspect ratio of cloth
-            c_width, c_height = cloth_img.size
-            
-            # Explicit proportion override (User requested JSON control)
-            if height_ratio and height_ratio > 0:
-                print(f"Using explicit height ratio from JSON: {height_ratio}")
-                target_height = int(p_height * height_ratio)
-                if c_height > 0:
-                     # Recalculate width to maintain aspect
-                     aspect = c_width / c_height
-                     target_width = int(target_height * aspect)
-            elif c_width > 0:
-                aspect = c_height / c_width
-                target_height = int(target_width * aspect)
-            else:
-                target_height = target_width # Fallback
-            
-            resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-            
-            # Calculate Position
-            pos_x = int((center_x * p_width) - (target_width / 2))
-            
-            if is_lower and not is_dress:
-                # Place at "waist" approx
-                # Assuming center_y is chest (0.4), waist is lower.
-                # However, user reported it falling off (too low).
-                # Let's reduce the offset. Previously +0.15. Try +0.05.
-                pos_y = int((center_y * p_height) + (p_height * 0.05))
-            else:
-                # Place at "shoulders" approx
-                pos_y = int((center_y * p_height) - (target_height / 3))
-            
-            result = Image.new("RGBA", person_img.size, (0,0,0,0))
-            result.paste(person_img, (0,0))
-            result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) 
-            
-            output = io.BytesIO()
-            result.convert("RGB").save(output, format="JPEG", quality=90)
-            return output.getvalue()
-            
-        except Exception as e:
-            print(f"Free VTON Error: {e}")
-            raise e
+        return final_result_bytes
