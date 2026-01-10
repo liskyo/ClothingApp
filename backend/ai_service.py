@@ -198,6 +198,16 @@ class AIService:
             # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion
             person_bytes = self._ensure_aspect_ratio(person_bytes)
             
+            # PRE-PROCESS Garment: Also ensure 3:4 for the cloth image
+            with open(cloth_path, "rb") as f:
+                cloth_bytes = f.read()
+            cloth_bytes = self._ensure_aspect_ratio(cloth_bytes)
+            
+             # Save processed cloth to temp file
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f.write(cloth_bytes)
+                processed_cloth_path = f.name
+
             # Determine category: Use explicit first, else guess
             if not category:
                 if "裙" in cloth_name or "洋裝" in cloth_name:
@@ -227,7 +237,7 @@ class AIService:
             
             result = client.predict(
                 vton_img=handle_file(person_path),
-                garm_img=handle_file(cloth_path),
+                garm_img=handle_file(processed_cloth_path), # Use processed cloth
                 category=ootd_category,
                 n_samples=1,
                 n_steps=30, 
