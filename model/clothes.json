@@ -1,11 +1,11 @@
 [
     {
         "id": "001",
-        "name": "碎花裙",
+        "name": "碎花連身裙",
         "height_range": "150-165cm",
         "gender": "女性",
         "style": "時尚休閒(Mock)",
-        "category": "Lower-body"
+        "category": "Whole-body"
     },
     {
         "id": "002",
