@@ -13,6 +13,9 @@ dist/
 .vscode/
 .idea/
 
+# Vercel
+.vercel/
+
 # Backend Model Images (Optional: Keep if you want to verify data)
 # model/*.jpg
 # model/*.png
