@@ -278,8 +278,10 @@ class AIService:
                  elif ootd_category == "Lower-body":
                      target_coverage_h = 0.65 # Long pants/skirt
                  else:
-                     # Upper-body: usually defined by Width, not Height.
-                     target_coverage_h = 0.0 # Use width mode
+                     # Upper-body: Enforce "Full Coverage" (Long Shirt) by default
+                     # Previously 0.0 (Width Mode) allowed crop-tops to stay short.
+                     # Now setting to 0.6 (approx 60% canvas height) covers torso fully.
+                     target_coverage_h = 0.6 
             
             # Calculate resize dimensions
             final_w, final_h = w, h
@@ -300,8 +302,8 @@ class AIService:
                 
                 final_w, final_h = goal_w, goal_h
             else:
-                # Resize based on Width (Standard Upper Body)
-                # Fill ~90% of width
+                # Fallback (Should be rare now as all categories have defaults)
+                # Resize based on Width 
                 goal_w = int(canvas_w * 0.9)
                 aspect = h / w 
                 goal_h = int(goal_w * aspect)
