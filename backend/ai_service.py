@@ -198,23 +198,26 @@ class AIService:
             print(f"Gradio VTON Failed: {e}")
             return None
 
-    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body") -> bytes:
+    def virtual_try_on(self, person_img_bytes: bytes, cloth_img_path: str, cloth_name: str = "Upper-body", category: str = "Upper-body", method: str = "auto") -> bytes:
         """
         Virtual Try-On Pipeline:
         1. Replicate (Paid, Best) - Skipped if no token.
-        2. Gradio OOTDiffusion (Free, Slow, GenAI) - New!
-        3. Gemini Overlay (Free, Fast, 2D) - Fallback.
+        2. Gradio OOTDiffusion (Free, Slow, GenAI) - Skipped if method='overlay'
+        3. Gemini Overlay (Free, Fast, 2D) - Fallback or Explicit.
         """
         # 1. Replicate (Paid)
-        if self.replicate_token:
+        if self.replicate_token and method != 'overlay':
              # Just a placeholder for Replicate logic presence
              pass # In real file, keep replicate block
              
         # 2. Gradio (Free GenAI)
-        print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
-        gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category)
-        if gen_img:
-            return gen_img
+        if method != 'overlay':
+            print(f"Attempting OOTDiffusion (Free GenAI) for {cloth_name} ({category})...")
+            gen_img = self._try_on_gradio(person_img_bytes, cloth_img_path, cloth_name, category)
+            if gen_img:
+                return gen_img
+        else:
+            print(f"Skipping GenAI due to explicit method='{method}'")
             
         # 3. Fallback / Free Mode: Gemini Guided Overlay
         print("Using Free Mode: Gemini Guided Overlay")
