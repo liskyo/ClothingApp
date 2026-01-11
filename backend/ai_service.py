@@ -236,80 +236,15 @@ class AIService:
 
             with open(cloth_path, "rb") as f:
                 raw_c_img = Image.open(f).convert("RGB")
-            
+        
             # 1. Trim (Remove borders)
             c_img_trimmed = trim(raw_c_img)
+            
+            # 2. Resize if too large (Optional, but good for latency)
+            # Just ensure it's not massive. OOTD is fine with typical sizes.
+            # We DO NOT paste onto a white canvas anymore. We let OOTD handle the cloth frame.
+            max_dim = 1024
             w, h = c_img_trimmed.size
-            
-            # 2. Determine Target Scale (relative to 3:4 Canvas)
-            # We will construct a canvas of width = w_canvas (fixed arbitrary or relative)
-            # Let's use a high resolution canvas, e.g., width=768 (standard OOTD width)
-            canvas_w = 768
-            canvas_h = 1024 # 3:4 aspect
-            
-            # Determine how much of the canvas height the garment should cover
-            target_coverage_h = 0.0
-            
-            if height_ratio:
-                 print(f"Custom Height Ratio: {height_ratio}")
-                 # User specified ratio (e.g. 0.5 of body)
-                 # Map this to canvas height.
-                 # Body is approx 90% of canvas height normally? 
-                 # Let's simplify: 
-                 # Dress/Whole-body: 0.5 ratio -> 0.5 of canvas (approx)
-                 # Upper-body: 0.5 ratio -> is that half shirt?
-                 # Let's map directly to canvas height % for simplicity, or relative to 'Standard'
-                 
-                 # Refined mapping:
-                 if ootd_category == "Dress":
-                     # Standard Dress ~ 0.85
-                     target_coverage_h = height_ratio
-                 elif ootd_category == "Lower-body":
-                     # Standard Skirt ~ 0.6
-                     target_coverage_h = height_ratio
-                 else:
-                     # Upper body default
-                     target_coverage_h = height_ratio
-            else:
-                 # DEFAULT: FULL COVERAGE (User Request)
-                 print(f"Default Full Coverage for {ootd_category}")
-                 if ootd_category == "Dress":
-                     target_coverage_h = 0.85 # Long dress
-                 elif ootd_category == "Lower-body":
-                    # Default to Ankle Length (0.8) to force pants/long skirts.
-                    # User reported 0.65 turned jeans into shorts.
-                    target_coverage_h = 0.82
-                 else:
-                     # Upper-body: Enforce "Full Coverage" (Long Shirt) by default
-                     # Previously 0.0 (Width Mode) allowed crop-tops to stay short.
-                     # Now setting to 0.6 (approx 60% canvas height) covers torso fully.
-                     target_coverage_h = 0.6 
-            
-            # Calculate resize dimensions
-            final_w, final_h = w, h
-            
-            if target_coverage_h > 0:
-                # Resize based on Height
-                # Goal height = canvas_h * target_coverage_h
-                goal_h = int(canvas_h * target_coverage_h)
-                
-                # Aspect ratio
-                aspect = w / h
-                goal_w = int(goal_h * aspect)
-                
-                # Constraint: Don't exceed canvas width
-                if goal_w > canvas_w * 0.9:
-                    goal_w = int(canvas_w * 0.9)
-                    goal_h = int(goal_w / aspect)
-                
-                final_w, final_h = goal_w, goal_h
-            else:
-                # Fallback (Should be rare now as all categories have defaults)
-                # Resize based on Width 
-                goal_w = int(canvas_w * 0.9)
-                aspect = h / w 
-                goal_h = int(goal_w * aspect)
-                final_w, final_h = goal_w, goal_h
 
             print(f"Resizing garment to {final_w}x{final_h} (Canvas: {canvas_w}x{canvas_h})")
             
@@ -609,7 +544,27 @@ class AIService:
                 print(f"Free VTON Error: {e}")
                 raise e
         
-        # 4. Post-Process: Add Watermark (Prompt)
+        # 4. Post-Process: Resize back to Original Dimensions (User Request)
+        if final_result_bytes:
+            try:
+                # Get original size
+                with Image.open(io.BytesIO(person_img_bytes)) as orig_img:
+                    orig_w, orig_h = orig_img.size
+                    
+                with Image.open(io.BytesIO(final_result_bytes)) as res_img:
+                    # Only resize if different
+                    if res_img.size != (orig_w, orig_h):
+                        print(f"Resizing result from {res_img.size} to original {orig_w}x{orig_h}...")
+                        res_img = res_img.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+                        
+                        # Save back to bytes
+                        out = io.BytesIO()
+                        res_img.save(out, format="JPEG", quality=95)
+                        final_result_bytes = out.getvalue()
+            except Exception as e:
+                print(f"Resize Error: {e}")
+
+        # 5. Post-Process: Add Watermark (Prompt)
         if final_result_bytes:
             print("Adding Disclaimer Watermark...")
             final_result_bytes = self._add_watermark(final_result_bytes)
