@@ -417,8 +417,8 @@ class AIService:
         # Simple Rotation for single call
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
-        # updated model name to try and fix 404
-        model = genai.GenerativeModel('gemini-1.5-flash-001') 
+        # updated model name to available one
+        model = genai.GenerativeModel('gemini-2.0-flash') 
         
         processed_bytes = img_bytes
         
