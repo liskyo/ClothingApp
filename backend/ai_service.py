@@ -254,6 +254,9 @@ class AIService:
                  else:
                      target_coverage_h = 0.95 # Default to very long for pants
                  
+                 # WIDTH FIX: Reduce width to 60-70% to match human hips better (vs 90% canvas)
+                 target_coverage_w = 0.7 
+                 
                  # CRITICAL FIX: Aspect Ratio Forcing
                  # If the input pants image is square or wide (e.g. folded jeans), scaling to width will result in short height.
                  # We must DISTORT (Stretch) the pants to be tall and thinish to force "Long Pants" structure.
@@ -358,7 +361,7 @@ class AIService:
                     category=ootd_category, 
                     n_samples=1,
                     n_steps=30, # High steps for quality
-                    image_scale=3.5, # Boost to 3.5 to force Pants Length/Shape
+                    image_scale=3.0, # Moderately High (3.0) for good shape but better blending than 3.5
                     seed=-1,
                     api_name="/process_dc"
                 )
