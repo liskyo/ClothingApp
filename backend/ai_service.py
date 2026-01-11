@@ -247,25 +247,27 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX (Shape Priority):
-                 # Problem: "Coverage" fix made pants wide (Square aspect ratio), causing AI to generate Shorts.
-                 # Solution: Prioritize SHAPE. Pants must be TALL and THIN (Ratio < 0.5) to be interpreted as "Long Pants".
+                 # PANTS FIX (Balanced):
+                 # Attempt 1 (0.9 Width, 0.6 H) -> Shorts (Ratio > 1.0)
+                 # Attempt 2 (0.5 Width, 0.9 H) -> Flaps/Artifacts (Poor Coverage, Scale 5.0 too high?)
+                 # Attempt 3: The "Goldilocks" Zone + Lower Scale.
                  
                  # 1. Dimensions
-                 # Height: 90% of canvas (Max Length)
-                 target_h = int(canvas_h * 0.9)
+                 # Width: 75% (Covers hips better than 50% but keeps Ratio < 0.9)
+                 target_w = int(canvas_w * 0.75) 
                  
-                 # Width: 50% of canvas (Slim/Leg-like)
-                 # We compromise coverage for Correct Classification (Pants vs Shorts)
-                 target_w = int(canvas_w * 0.5)
+                 # Height: 95% (Max Length)
+                 # Ratio check: 0.75 / 0.95 = 0.78 (Still rectangular-ish, should be Long Pants)
+                 target_h = int(canvas_h * 0.95)
                  
-                 # Force Resize to "Long Pants Shape"
+                 # 2. Force Resize
                  c_img_resized = c_img_trimmed.resize((target_w, target_h), Image.Resampling.LANCZOS)
                  
-                 # 2. Position (Centered)
-                 # Revert to Centered because OOTD Preprocessing usually expects centered inputs and handles placement.
+                 # 3. Position (Centered + Lowered)
+                 # Centering 0.95h on 1.0h canvas leaves 2.5% margin.
+                 # Let's align to BOTTOM to ensure ankles are covered.
                  paste_x = (canvas_w - target_w) // 2
-                 paste_y = (canvas_h - target_h) // 2
+                 paste_y = canvas_h - target_h # Flush with bottom
                  
             else:
                  # Standard logic for Check/Upper/Dress (Centered)
@@ -282,7 +284,7 @@ class AIService:
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             if ootd_category == "Lower-body":
-                 print(f"Pants Layout: SHAPE PRIORITY - Size {c_img_resized.size} (Ratio {target_w/target_h:.2f})")
+                 print(f"Pants Layout: BALANCED - Size {c_img_resized.size} (Ratio {target_w/target_h:.2f})")
             
             # Save processed cloth
             proc_cloth_path = os.path.join(tempfile.gettempdir(), f"proc_cloth_{int(time.time())}.jpg")
@@ -356,8 +358,8 @@ class AIService:
                     garm_img=handle_file(proc_cloth_path), 
                     category=ootd_category, 
                     n_samples=1,
-                    n_steps=30, # High steps for quality
-                    image_scale=5.0, # MAX SCALE (5.0) to Force-Overwrite Original Clothes
+                    n_steps=40, # Increase steps for better blending
+                    image_scale=2.5, # Reduce to 2.5 (Standard-ish) to avoid harsh artifacting/flaps
                     seed=-1,
                     api_name="/process_dc"
                 )
