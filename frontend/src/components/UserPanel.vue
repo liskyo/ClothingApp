@@ -38,10 +38,69 @@ const fetchClothes = async () => {
   }
 }
 
+const compressImage = async (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Resize to max 1280px (Safe for VTON & Vercel Limit)
+        const MAX_SIZE = 1280;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Create new file with same name but jpg
+            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            console.log(`Compressed: ${file.size/1024/1024:.2f}MB -> ${newFile.size/1024/1024:.2f}MB`);
+            resolve(newFile);
+          } else {
+            reject(new Error("Canvas to Blob failed"));
+          }
+        }, 'image/jpeg', 0.85); // 85% Quality
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
 const onUserFileChange = async (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
-    const rawFile = target.files[0]
+    let rawFile = target.files[0]
+    
+    // Resize before anything
+    try {
+        console.log("Compressing image...");
+        rawFile = await compressImage(rawFile);
+    } catch (e) {
+        console.error("Compression failed, using raw:", e);
+    }
     
     // Show raw preview first
     userPhotoPreview.value = URL.createObjectURL(rawFile)
@@ -80,7 +139,10 @@ const onUserFileChange = async (e: Event) => {
             }
             reader.readAsText(errorBlob)
         } else {
-             alert('照片分析連線失敗，將使用原始照片。')
+             // If 403 or 500, likely Vercel blocking or Timeout.
+             // But we just resized, so chance is lower.
+             // Fallback to original (resized) file.
+             alert('照片分析連線失敗 (可能因網路問題)，將直接使用此照片試穿。')
              userFile.value = rawFile
         }
     } finally {
