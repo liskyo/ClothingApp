@@ -352,13 +352,15 @@ class AIService:
                 f.write(person_bytes)
                 person_path = f.name
             
+            # Call Gradio Client
+            # Using 'levihsu/OOTDiffusion'
             result = client.predict(
                 vton_img=handle_file(person_path),
                 garm_img=handle_file(proc_cloth_path), # Use processed path
-                category=ootd_category,
+                category=ootd_category, # "Upper-body", "Lower-body", "Dress"
                 n_samples=1,
-                n_steps=20, 
-                image_scale=2.0, 
+                n_steps=30, # Increased from 20 to 30 for better quality/coherence
+                image_scale=2.5, # Slightly increased guidance for better adherence
                 seed=-1,
                 api_name="/process_dc"
             )
@@ -460,9 +462,10 @@ class AIService:
             
             # Smart Pass-through Check:
             # If image is already portrait (approx 3:4) AND person is big enough, KEEP ORIGINAL.
-            # 3:4 = 0.75. Accept range 0.6 to 0.85
+            # 3:4 = 0.75. 9:16 = 0.5625.
+            # Relaxed range: 0.50 to 0.85 to support standard phone screenshots/photos.
             img_aspect = w / h
-            is_portrait = 0.6 <= img_aspect <= 0.85
+            is_portrait = 0.50 <= img_aspect <= 0.85
             
             # Check Person Coverage (height)
             coverage = p_h / h
