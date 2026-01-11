@@ -195,12 +195,10 @@ class AIService:
         try:
             from gradio_client import Client, handle_file
             
-            # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion
-            person_bytes = self._ensure_aspect_ratio(person_bytes)
+            # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion (Skipped if we trust input)
+            # Default input logic handles person image.
             
-            # PRE-PROCESS Garment: OOTD handles garment resizing internally.
-            
-            # Determine category: Use explicit first, else guess
+            # Determine category
             if not category:
                 if "裙" in cloth_name or "洋裝" in cloth_name:
                     category = "Dress"
@@ -209,21 +207,18 @@ class AIService:
                 else:
                     category = "Upper-body"
 
-            # Map our internal categories to OOTDiffusion's exact strings
-            # OOTD expects: 'Upper-body', 'Lower-body', 'Dress'
+            # Map to OOTD strings
             ootd_category = "Upper-body"
             if category.lower() in ["lower-body", "lower_body", "bottom"]:
                 ootd_category = "Lower-body"
             elif category.lower() in ["dress", "dresses", "whole-body", "whole_body"]:
                 ootd_category = "Dress"
             
-            # Garment Normalization & Resizing Logic
-            # Goal: Enforce "Standard/Full" size by default, or "Specific" size if height_ratio is set.
-            # 1. Trim Whitespace (to get true garment size)
-            # 2. Scale to target (Default or Custom)
-            # 3. Paste on 3:4 Canvas
-            
             from PIL import Image, ImageChops
+            import io
+            import time
+            import os
+            import tempfile
             
             def trim(im):
                 bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
@@ -240,35 +235,80 @@ class AIService:
             # 1. Trim (Remove borders)
             c_img_trimmed = trim(raw_c_img)
             
-            # 2. Resize if too large (Optional, but good for latency)
-            # Just ensure it's not massive. OOTD is fine with typical sizes.
-            # We DO NOT paste onto a white canvas anymore. We let OOTD handle the cloth frame.
-            max_dim = 1024
-            w, h = c_img_trimmed.size
+            # 2. Standardize for VTON (768x1024 Canvas)
+            # This ensures OOTD receives a high-quality, centered input regardless of original crop.
+            canvas_w, canvas_h = 768, 1024
+            
+            # Fit garment into canvas (90% coverage max to leave margin)
+            # Maintain aspect ratio
+            c_w, c_h = c_img_trimmed.size
+            scale = min((canvas_w * 0.9) / c_w, (canvas_h * 0.9) / c_h)
+            new_w = int(c_w * scale)
+            new_h = int(c_h * scale)
+            
+            c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            
+            # Paste on White Canvas (Centered)
+            final_cloth = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+            paste_x = (canvas_w - new_w) // 2
+            paste_y = (canvas_h - new_h) // 2
+            final_cloth.paste(c_img_resized, (paste_x, paste_y))
+            
+            # Save processed cloth
+            proc_cloth_path = os.path.join(tempfile.gettempdir(), f"proc_cloth_{int(time.time())}.jpg")
+            final_cloth.save(proc_cloth_path, format="JPEG", quality=95)
+            
+            print(f"Processed Garment (Standardized) saved to {proc_cloth_path}")
+            
+            try:
+                # Prepare Person Image Path
+                person_path = os.path.join(tempfile.gettempdir(), f"person_{int(time.time())}.jpg")
+                with open(person_path, "wb") as f:
+                    f.write(person_bytes)
+                
+                print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category}...")
+                client = Client("levihsu/OOTDiffusion")
+                
+                # Call Gradio Client
+                # Using 'levihsu/OOTDiffusion'
+                result = client.predict(
+                    vton_img=handle_file(person_path),
+                    garm_img=handle_file(proc_cloth_path), 
+                    category=ootd_category, 
+                    n_samples=1,
+                    n_steps=30, 
+                    image_scale=4.0, 
+                    seed=-1,
+                    api_name="/process_dc"
+                )
+                
+                # Handle Result (can be list or tuple)
+                out_path = None
+                if isinstance(result, list):
+                     # Usually list of dict or list of paths
+                     item = result[0]
+                     out_path = item.get('image') if isinstance(item, dict) else item
+                elif isinstance(result, tuple):
+                     out_path = result[0]
+                else:
+                     out_path = result
+                     
+                print(f"GenAI Result Path: {out_path}")
+                
+                if out_path and os.path.exists(out_path):
+                     with open(out_path, "rb") as f:
+                         return f.read()
+                else:
+                     print("GenAI returned invalid path.")
+                     return None
 
-            print(f"Resizing garment to {final_w}x{final_h} (Canvas: {canvas_w}x{canvas_h})")
-            
-            # Resize
-            resized_img = c_img_trimmed.resize((final_w, final_h), Image.Resampling.LANCZOS)
-            
-            # 3. Create Canvas and Paste
-            canvas = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
-            
-            # Paste Position: Top Center (with slight margin top)
-            paste_x = (canvas_w - final_w) // 2
-            paste_y = 0
-            
-            # For Upper-body, usually top align is fine.
-                # Check if it's a path or url
-                import shutil
-                with open(first_img, "rb") as r:
-                    return r.read()
-                    
-            return None
-            
+            except Exception as e:
+                print(f"GenAI Call Error: {e}")
+                raise e # Re-raise to ensure main handler catches it
+
         except Exception as e:
-            print(f"Gradio VTON Failed: {e}")
-            return None
+            print(f"Gradio VTON Setup Failed: {e}")
+            raise e
 
     def validate_and_crop_user_photo(self, img_bytes: bytes) -> Dict:
         """
