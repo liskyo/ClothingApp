@@ -396,15 +396,17 @@ class AIService:
             
         # 1. Gemini Analysis
         prompt = """
-        請分析這張照片是否適合做虛擬試穿 (Virtual Try-On)。
-        標準：
+        請仔細分析這張照片是否適合做虛擬試穿 (Virtual Try-On)。
+        試穿系統需要一張包含「頭部到膝蓋以下」的全身照，且人物清晰。
+        
+        標準檢查：
         1. "is_single": 是否只有一個主體人物？(True/False)
-        2. "is_front": 是否為正面或微側面朝前？背影或大側面不行。(True/False)
-        3. "is_full_body": 是否為全身照或至少包含膝蓋以上？僅大頭照不行。(True/False)
+        2. "is_front": 是否為正面或微側面朝前？(不能是背影或純側面) (True/False)
+        3. "is_full_body": 重點檢查！人物是否完整包含頭部、軀幹、手臂以及「大部分腿部(至少過膝蓋)」？僅上半身、半身照、切到大腿的都不行。(True/False)
         4. "is_clear": 影像是否清晰主體明確？(True/False)
         5. "box_2d": 人物的 Bounding Box [ymin, xmin, ymax, xmax] (0-1000 範圍整數)。
         
-        請嚴格判斷。若不符合，reason 請用繁體中文說明原因。
+        若不符合上述任何一點，請將 valid 設為 false。
         回傳 JSON: {"valid": bool, "reason": str, "box_2d": [ymin, xmin, ymax, xmax], "is_single": bool, "is_front": bool, "is_full_body": bool}
         """
         
