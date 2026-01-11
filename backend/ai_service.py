@@ -239,10 +239,23 @@ class AIService:
             # This ensures OOTD receives a high-quality, centered input regardless of original crop.
             canvas_w, canvas_h = 768, 1024
             
-            # Fit garment into canvas (90% coverage max to leave margin)
-            # Maintain aspect ratio
+            # Fit garment into canvas
+            # Adjust coverage based on category
+            target_coverage_w = 0.9
+            target_coverage_h = 0.9
+            
+            if ootd_category == "Lower-body":
+                 # PANTS FIX: Pants need to be BIG to prevent becoming shorts.
+                 # If user specified height_ratio, use it to control vertical scale (relative to canvas).
+                 # Otherwise, default to ensuring they look long.
+                 if height_ratio:
+                     target_coverage_h = min(height_ratio, 0.95)
+                 else:
+                     target_coverage_h = 0.95 # Default to very long for pants
+            
             c_w, c_h = c_img_trimmed.size
-            scale = min((canvas_w * 0.9) / c_w, (canvas_h * 0.9) / c_h)
+            scale = min((canvas_w * target_coverage_w) / c_w, (canvas_h * target_coverage_h) / c_h)
+            
             new_w = int(c_w * scale)
             new_h = int(c_h * scale)
             
@@ -252,6 +265,8 @@ class AIService:
             final_cloth = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
             paste_x = (canvas_w - new_w) // 2
             paste_y = (canvas_h - new_h) // 2
+            
+            # Vertical Adjustment for Pants: slightly lower? No, centered is standard for OOTD.
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             # Save processed cloth
@@ -326,8 +341,8 @@ class AIService:
                     garm_img=handle_file(proc_cloth_path), 
                     category=ootd_category, 
                     n_samples=1,
-                    n_steps=20, # Reset to 20 (Standard) to avoid over-baking
-                    image_scale=2.0, # Reset to 2.0 (Standard) to avoid "Sticker/Paste" look
+                    n_steps=30, # High steps for quality
+                    image_scale=3.5, # Boost to 3.5 to force Pants Length/Shape
                     seed=-1,
                     api_name="/process_dc"
                 )
