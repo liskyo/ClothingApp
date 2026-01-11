@@ -247,43 +247,42 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX: Pants need to be BIG to prevent becoming shorts.
-                 # If user specified height_ratio, use it to control vertical scale.
+                 # PANTS FIX (Final): Force Exact Dimensions
+                 # Previous issue: Constraining width (0.7) force-scaled height down, making pants short.
+                 # Solution: Ignore aspect ratio and FORCE resize to exact target box for maximum control.
+                 
+                 # Width: 0.7 (Slim/Natural Fit)
+                 t_w = int(canvas_w * 0.7)
+                 
+                 # Height: 0.95 (Full Length) unless overridden
+                 t_h_ratio = 0.95
                  if height_ratio:
-                     target_coverage_h = min(height_ratio, 0.95)
-                 else:
-                     target_coverage_h = 0.95 # Default to very long for pants
+                     t_h_ratio = min(height_ratio, 0.95)
+                 t_h = int(canvas_h * t_h_ratio)
                  
-                 # WIDTH FIX: Reduce width to 60-70% to match human hips better (vs 90% canvas)
-                 target_coverage_w = 0.7 
+                 print(f"Force-Resizing Pants to {t_w}x{t_h} (Slim & Long)...")
+                 c_img_resized = c_img_trimmed.resize((t_w, t_h), Image.Resampling.LANCZOS)
                  
-                 # CRITICAL FIX: Aspect Ratio Forcing
-                 # If the input pants image is square or wide (e.g. folded jeans), scaling to width will result in short height.
-                 # We must DISTORT (Stretch) the pants to be tall and thinish to force "Long Pants" structure.
+                 new_w, new_h = t_w, t_h # For pasting
                  
-                 # Current Aspect Ratio
-                 c_aspect = c_w / c_h
-                 target_aspect = 0.6 # Tall and thin (like legs)
-                 
-                 if c_aspect > target_aspect:
-                     # It's too wide. Stretch Height.
-                     print(f"Pants are too wide (Ratio {c_aspect:.2f}). Stretching to {target_aspect}...")
-                     new_forced_h = int(c_w / target_aspect)
-                     c_img_trimmed = c_img_trimmed.resize((c_w, new_forced_h), Image.Resampling.LANCZOS)
-                     c_w, c_h = c_img_trimmed.size # Update size
-            
-            # Recalculate scale with potentially new dimensions
-            scale = min((canvas_w * target_coverage_w) / c_w, (canvas_h * target_coverage_h) / c_h)
-            
-            new_w = int(c_w * scale)
-            new_h = int(c_h * scale)
-            
-            c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            else:
+                 # Standard logic for Check/Upper/Dress
+                 scale = min((canvas_w * target_coverage_w) / c_w, (canvas_h * target_coverage_h) / c_h)
+                 new_w = int(c_w * scale)
+                 new_h = int(c_h * scale)
+                 c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
             
             # Paste on White Canvas (Centered)
             final_cloth = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
             paste_x = (canvas_w - new_w) // 2
             paste_y = (canvas_h - new_h) // 2
+            
+            if ootd_category == "Lower-body":
+                 # Correction: Pants usually sit lower (waist), not centered vertically (which might put waist at chest).
+                 # Shift down by 5% of canvas height?
+                 # No, standard OOTD dataset usually has them centered but let's try nudging down a bit if it helps.
+                 # Actually, centered is safest for "Full Body" inputs.
+                 pass
             
             # Vertical Adjustment for Pants: slightly lower? No, centered is standard for OOTD.
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
