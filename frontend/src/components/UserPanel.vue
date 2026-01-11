@@ -76,7 +76,7 @@ const compressImage = async (file: File): Promise<File> => {
               type: 'image/jpeg',
               lastModified: Date.now(),
             });
-            console.log(`Compressed: ${file.size/1024/1024:.2f}MB -> ${newFile.size/1024/1024:.2f}MB`);
+            console.log(`Compressed: ${(file.size/1024/1024).toFixed(2)}MB -> ${(newFile.size/1024/1024).toFixed(2)}MB`);
             resolve(newFile);
           } else {
             reject(new Error("Canvas to Blob failed"));
