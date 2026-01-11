@@ -310,80 +310,82 @@ class AIService:
             
             print(f"Padded Person saved to {padded_person_path} (Ratio: {current_ratio:.2f} -> {target_ratio})")
 
-            print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category}...")
-            client = Client("levihsu/OOTDiffusion")
+            try:
+                print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category}...")
+                client = Client("levihsu/OOTDiffusion")
+                
+                # Call Gradio Client
+                # Using 'levihsu/OOTDiffusion'
+                result = client.predict(
+                    vton_img=handle_file(padded_person_path), # Send PADDED image
+                    garm_img=handle_file(proc_cloth_path), 
+                    category=ootd_category, 
+                    n_samples=1,
+                    n_steps=20, # Reset to 20 (Standard) to avoid over-baking
+                    image_scale=2.0, # Reset to 2.0 (Standard) to avoid "Sticker/Paste" look
+                    seed=-1,
+                    api_name="/process_dc"
+                )
             
-            # Call Gradio Client
-            # Using 'levihsu/OOTDiffusion'
-            result = client.predict(
-                vton_img=handle_file(padded_person_path), # Send PADDED image
-                garm_img=handle_file(proc_cloth_path), 
-                category=ootd_category, 
-                n_samples=1,
-                n_steps=20, # Reset to 20 (Standard) to avoid over-baking
-                image_scale=2.0, # Reset to 2.0 (Standard) to avoid "Sticker/Paste" look
-                seed=-1,
-                api_name="/process_dc"
-            )
-            
-            # Handle Result (can be list or tuple)
-            out_path = None
-            if isinstance(result, list):
-                 item = result[0]
-                 out_path = item.get('image') if isinstance(item, dict) else item
-            elif isinstance(result, tuple):
-                 out_path = result[0]
-            else:
-                 out_path = result
-                 
-            print(f"GenAI Result Path: {out_path}")
-            
-            if out_path and os.path.exists(out_path):
-                 # POST-PROCESS: Un-Pad (Crop back to original relative area)
-                 with Image.open(out_path) as res_pil:
-                     # Res is likely 768x1024 (3:4) or similar.
-                     # We need to map the padding relative to the RESULT dimensions.
-                     rw, rh = res_pil.size
+                # Handle Result (can be list or tuple)
+                out_path = None
+                if isinstance(result, list):
+                     # Usually list of dict or list of paths
+                     item = result[0]
+                     out_path = item.get('image') if isinstance(item, dict) else item
+                elif isinstance(result, tuple):
+                     out_path = result[0]
+                else:
+                     out_path = result
                      
-                     # Since we padded the INPUT to exactly 3:4, and OOTD outputs 3:4...
-                     # The relative padding % should be identical.
-                     
-                     if pad_w > 0: # We added width padding
-                         # Calculate Pad Percentage of Input Padded Image
-                         # pad_l / target_w
-                         # But wait, we have orig_w and target_w (from logic above).
-                         target_w_in = int(orig_h * target_ratio)
-                         pad_l_in = (target_w_in - orig_w) // 2
+                print(f"GenAI Result Path: {out_path}")
+                
+                if out_path and os.path.exists(out_path):
+                     # POST-PROCESS: Un-Pad (Crop back to original relative area)
+                     with Image.open(out_path) as res_pil:
+                         # Res is likely 768x1024 (3:4) or similar.
+                         # We need to map the padding relative to the RESULT dimensions.
+                         rw, rh = res_pil.size
                          
-                         ratio_l = pad_l_in / target_w_in
-                         ratio_w = orig_w / target_w_in
+                         # Since we padded the INPUT to exactly 3:4, and OOTD outputs 3:4...
+                         # The relative padding % should be identical.
                          
-                         # Crop Result
-                         crop_x = int(rw * ratio_l)
-                         crop_w = int(rw * ratio_w)
-                         res_cropped = res_pil.crop((crop_x, 0, crop_x + crop_w, rh))
+                         if pad_w > 0: # We added width padding
+                             # Calculate Pad Percentage of Input Padded Image
+                             # pad_l / target_w
+                             # But wait, we have orig_w and target_w (from logic above).
+                             target_w_in = int(orig_h * target_ratio)
+                             pad_l_in = (target_w_in - orig_w) // 2
+                             
+                             ratio_l = pad_l_in / target_w_in
+                             ratio_w = orig_w / target_w_in
+                             
+                             # Crop Result
+                             crop_x = int(rw * ratio_l)
+                             crop_w = int(rw * ratio_w)
+                             res_cropped = res_pil.crop((crop_x, 0, crop_x + crop_w, rh))
+                             
+                         elif pad_h > 0: # We added height padding
+                             target_h_in = int(orig_w / target_ratio)
+                             pad_t_in = (target_h_in - orig_h) // 2
+                             
+                             ratio_t = pad_t_in / target_h_in
+                             ratio_h = orig_h / target_h_in
+                             
+                             crop_y = int(rh * ratio_t)
+                             crop_h = int(rh * ratio_h)
+                             res_cropped = res_pil.crop((0, crop_y, rw, crop_y + crop_h))
+                         else:
+                             res_cropped = res_pil
+                             
+                         # Convert to bytes
+                         buf = io.BytesIO()
+                         res_cropped.save(buf, format="JPEG", quality=95)
+                         return buf.getvalue()
                          
-                     elif pad_h > 0: # We added height padding
-                         target_h_in = int(orig_w / target_ratio)
-                         pad_t_in = (target_h_in - orig_h) // 2
-                         
-                         ratio_t = pad_t_in / target_h_in
-                         ratio_h = orig_h / target_h_in
-                         
-                         crop_y = int(rh * ratio_t)
-                         crop_h = int(rh * ratio_h)
-                         res_cropped = res_pil.crop((0, crop_y, rw, crop_y + crop_h))
-                     else:
-                         res_cropped = res_pil
-                         
-                     # Convert to bytes
-                     buf = io.BytesIO()
-                     res_cropped.save(buf, format="JPEG", quality=95)
-                     return buf.getvalue()
-                     
-            else:
-                 print("GenAI returned invalid path.")
-                 return None
+                else:
+                     print("GenAI returned invalid path.")
+                     return None
 
             except Exception as e:
                 print(f"GenAI Call Error: {e}")
