@@ -260,47 +260,130 @@ class AIService:
             
             print(f"Processed Garment (Standardized) saved to {proc_cloth_path}")
             
-            try:
-                # Prepare Person Image Path
-                person_path = os.path.join(tempfile.gettempdir(), f"person_{int(time.time())}.jpg")
-                with open(person_path, "wb") as f:
-                    f.write(person_bytes)
+            # PRE-PROCESS: Smart Padding to 3:4
+            # OOTD works best at 3:4 (0.75). Inputting other ratios causes hidden cropping/zooming.
+            # We must PAD the input to 3:4, run VTON, then CROP back to original.
+            
+            from PIL import Image, ImageOps
+            import io
+            
+            with open(person_path, "rb") as f:
+                orig_pil = Image.open(f).convert("RGB")
                 
-                print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category}...")
-                client = Client("levihsu/OOTDiffusion")
+            orig_w, orig_h = orig_pil.size
+            target_ratio = 0.75 # 3:4
+            current_ratio = orig_w / orig_h
+            
+            pad_w, pad_h = 0, 0
+            
+            if current_ratio < target_ratio:
+                # Too tall (e.g. 9:16 = 0.56). Need Width Padding.
+                target_w = int(orig_h * target_ratio)
+                pad_total = target_w - orig_w
+                pad_l = pad_total // 2
+                pad_r = pad_total - pad_l
                 
-                # Call Gradio Client
-                # Using 'levihsu/OOTDiffusion'
-                result = client.predict(
-                    vton_img=handle_file(person_path),
-                    garm_img=handle_file(proc_cloth_path), 
-                    category=ootd_category, 
-                    n_samples=1,
-                    n_steps=30, 
-                    image_scale=4.0, 
-                    seed=-1,
-                    api_name="/process_dc"
-                )
+                padded_pil = Image.new("RGB", (target_w, orig_h), (255, 255, 255))
+                padded_pil.paste(orig_pil, (pad_l, 0))
                 
-                # Handle Result (can be list or tuple)
-                out_path = None
-                if isinstance(result, list):
-                     # Usually list of dict or list of paths
-                     item = result[0]
-                     out_path = item.get('image') if isinstance(item, dict) else item
-                elif isinstance(result, tuple):
-                     out_path = result[0]
-                else:
-                     out_path = result
+                # Update pad info for post-crop
+                pad_w = pad_l # We only care about left offset and original width
+                
+            elif current_ratio > target_ratio:
+                # Too wide. Need Height Padding.
+                target_h = int(orig_w / target_ratio)
+                pad_total = target_h - orig_h
+                pad_t = pad_total // 2
+                pad_b = pad_total - pad_t
+                
+                padded_pil = Image.new("RGB", (orig_w, target_h), (255, 255, 255))
+                padded_pil.paste(orig_pil, (0, pad_t))
+                
+                # Update pad info
+                pad_h = pad_t
+            else:
+                padded_pil = orig_pil
+            
+            # Save Padded Person for OOTD
+            padded_person_path = os.path.join(tempfile.gettempdir(), f"person_padded_{int(time.time())}.jpg")
+            padded_pil.save(padded_person_path, format="JPEG", quality=95)
+            
+            print(f"Padded Person saved to {padded_person_path} (Ratio: {current_ratio:.2f} -> {target_ratio})")
+
+            print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category}...")
+            client = Client("levihsu/OOTDiffusion")
+            
+            # Call Gradio Client
+            # Using 'levihsu/OOTDiffusion'
+            result = client.predict(
+                vton_img=handle_file(padded_person_path), # Send PADDED image
+                garm_img=handle_file(proc_cloth_path), 
+                category=ootd_category, 
+                n_samples=1,
+                n_steps=20, # Reset to 20 (Standard) to avoid over-baking
+                image_scale=2.0, # Reset to 2.0 (Standard) to avoid "Sticker/Paste" look
+                seed=-1,
+                api_name="/process_dc"
+            )
+            
+            # Handle Result (can be list or tuple)
+            out_path = None
+            if isinstance(result, list):
+                 item = result[0]
+                 out_path = item.get('image') if isinstance(item, dict) else item
+            elif isinstance(result, tuple):
+                 out_path = result[0]
+            else:
+                 out_path = result
+                 
+            print(f"GenAI Result Path: {out_path}")
+            
+            if out_path and os.path.exists(out_path):
+                 # POST-PROCESS: Un-Pad (Crop back to original relative area)
+                 with Image.open(out_path) as res_pil:
+                     # Res is likely 768x1024 (3:4) or similar.
+                     # We need to map the padding relative to the RESULT dimensions.
+                     rw, rh = res_pil.size
                      
-                print(f"GenAI Result Path: {out_path}")
-                
-                if out_path and os.path.exists(out_path):
-                     with open(out_path, "rb") as f:
-                         return f.read()
-                else:
-                     print("GenAI returned invalid path.")
-                     return None
+                     # Since we padded the INPUT to exactly 3:4, and OOTD outputs 3:4...
+                     # The relative padding % should be identical.
+                     
+                     if pad_w > 0: # We added width padding
+                         # Calculate Pad Percentage of Input Padded Image
+                         # pad_l / target_w
+                         # But wait, we have orig_w and target_w (from logic above).
+                         target_w_in = int(orig_h * target_ratio)
+                         pad_l_in = (target_w_in - orig_w) // 2
+                         
+                         ratio_l = pad_l_in / target_w_in
+                         ratio_w = orig_w / target_w_in
+                         
+                         # Crop Result
+                         crop_x = int(rw * ratio_l)
+                         crop_w = int(rw * ratio_w)
+                         res_cropped = res_pil.crop((crop_x, 0, crop_x + crop_w, rh))
+                         
+                     elif pad_h > 0: # We added height padding
+                         target_h_in = int(orig_w / target_ratio)
+                         pad_t_in = (target_h_in - orig_h) // 2
+                         
+                         ratio_t = pad_t_in / target_h_in
+                         ratio_h = orig_h / target_h_in
+                         
+                         crop_y = int(rh * ratio_t)
+                         crop_h = int(rh * ratio_h)
+                         res_cropped = res_pil.crop((0, crop_y, rw, crop_y + crop_h))
+                     else:
+                         res_cropped = res_pil
+                         
+                     # Convert to bytes
+                     buf = io.BytesIO()
+                     res_cropped.save(buf, format="JPEG", quality=95)
+                     return buf.getvalue()
+                     
+            else:
+                 print("GenAI returned invalid path.")
+                 return None
 
             except Exception as e:
                 print(f"GenAI Call Error: {e}")
