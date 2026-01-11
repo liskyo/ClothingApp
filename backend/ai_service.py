@@ -247,27 +247,48 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX (Balanced):
-                 # Attempt 1 (0.9 Width, 0.6 H) -> Shorts (Ratio > 1.0)
-                 # Attempt 2 (0.5 Width, 0.9 H) -> Flaps/Artifacts (Poor Coverage, Scale 5.0 too high?)
-                 # Attempt 3: The "Goldilocks" Zone + Lower Scale.
+                 # PANTS FIX (Texture Preservation):
+                 # Problem: Stretching distorted the texture (e.g. Plaid), creating weird artifacts.
+                 # Problem: Wide inputs became shorts.
+                 # Solution: CROP the sides of the input garment to force a "Tall" aspect ratio WITHOUT stretching.
                  
-                 # 1. Dimensions
-                 # Width: 75% (Covers hips better than 50% but keeps Ratio < 0.9)
-                 target_w = int(canvas_w * 0.75) 
+                 # 1. Check Aspect Ratio
+                 c_aspect = c_w / c_h
+                 target_aspect = 0.55 # Target: Slim Tall Pants
                  
-                 # Height: 95% (Max Length)
-                 # Ratio check: 0.75 / 0.95 = 0.78 (Still rectangular-ish, should be Long Pants)
-                 target_h = int(canvas_h * 0.95)
+                 if c_aspect > target_aspect:
+                     # Too Wide!
+                     # Calculate new width to match target aspect ratio based on height
+                     new_source_w = int(c_h * target_aspect)
+                     
+                     # Center Crop
+                     left = (c_w - new_source_w) // 2
+                     right = left + new_source_w
+                     print(f"Pants too wide ({c_aspect:.2f}). Cropping width from {c_w} to {new_source_w} to force Long Pants...")
+                     
+                     c_img_trimmed = c_img_trimmed.crop((left, 0, right, c_h))
+                     c_w, c_h = c_img_trimmed.size # Update dimensions
                  
-                 # 2. Force Resize
-                 c_img_resized = c_img_trimmed.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                 # 2. Scale to Canvas
+                 # Now proper aspect ratio is guaranteed. Scale to Height.
+                 target_h = int(canvas_h * 0.92) # 92% Height (Ankle)
                  
-                 # 3. Position (Centered + Lowered)
-                 # Centering 0.95h on 1.0h canvas leaves 2.5% margin.
-                 # Let's align to BOTTOM to ensure ankles are covered.
-                 paste_x = (canvas_w - target_w) // 2
-                 paste_y = canvas_h - target_h # Flush with bottom
+                 scale = target_h / c_h
+                 new_w = int(c_w * scale)
+                 new_h = target_h
+                 
+                 # Cap width if it exceeds canvas (unlikely after crop, but good for safety)
+                 if new_w > int(canvas_w * 0.9):
+                      scale = (canvas_w * 0.9) / c_w
+                      new_w = int(c_w * scale)
+                      new_h = int(c_h * scale)
+
+                 c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                 
+                 # 3. Position (Centered-ish)
+                 # Shift slightly down to ensure waist isn't too high
+                 paste_x = (canvas_w - new_w) // 2
+                 paste_y = canvas_h - new_h # Flush Bottom
                  
             else:
                  # Standard logic for Check/Upper/Dress (Centered)
@@ -284,7 +305,7 @@ class AIService:
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             if ootd_category == "Lower-body":
-                 print(f"Pants Layout: BALANCED - Size {c_img_resized.size} (Ratio {target_w/target_h:.2f})")
+                 print(f"Pants Layout: SIDE-CROP - Size {c_img_resized.size}")
             
             # Save processed cloth
             proc_cloth_path = os.path.join(tempfile.gettempdir(), f"proc_cloth_{int(time.time())}.jpg")
