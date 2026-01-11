@@ -247,35 +247,48 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX (Final): Force Exact Dimensions
-                 # Previous issue: Constraining width (0.7) force-scaled height down, making pants short.
-                 # Solution: Ignore aspect ratio and FORCE resize to exact target box for maximum control.
+                 # PANTS FIX (Anatomical):
+                 # Problem: Centering pants on 1024h canvas places them at Chest-to-Knee (Shorts).
+                 # Solution: Place pants in the "Leg Zone" (Waist to Ankle).
                  
-                 # Width: 0.7 (Slim/Natural Fit)
-                 t_w = int(canvas_w * 0.7)
+                 # 1. Scale
+                 # Target Height: ~60% of canvas (enough for waist to floor)
+                 target_h = int(canvas_h * 0.6) 
                  
-                 # Height: 0.95 (Full Length) unless overridden
-                 t_h_ratio = 0.95
-                 if height_ratio:
-                     t_h_ratio = min(height_ratio, 0.95)
-                 t_h = int(canvas_h * t_h_ratio)
+                 # Maintain aspect ratio to avoid "Weird" distortion
+                 scale = target_h / c_h
+                 new_w = int(c_w * scale)
+                 new_h = target_h
                  
-                 print(f"Force-Resizing Pants to {t_w}x{t_h} (Slim & Long)...")
-                 c_img_resized = c_img_trimmed.resize((t_w, t_h), Image.Resampling.LANCZOS)
+                 # Width Check: If scaling by height makes them too wide (> 80% canvas), cap width
+                 if new_w > canvas_w * 0.8:
+                     scale = (canvas_w * 0.8) / c_w
+                     new_w = int(c_w * scale)
+                     new_h = int(c_h * scale)
                  
-                 new_w, new_h = t_w, t_h # For pasting
+                 c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                 
+                 # 2. Position (Anatomical)
+                 # Waist should be roughly at 40-45% of canvas height?
+                 # Let's align Bottom to ~95% of canvas (Ankles/Floor).
+                 # paste_y = canvas_h - new_h - padding_bottom
+                 padding_bottom = 50 
+                 paste_y = canvas_h - new_h - padding_bottom
+                 paste_x = (canvas_w - new_w) // 2
                  
             else:
-                 # Standard logic for Check/Upper/Dress
+                 # Standard logic for Check/Upper/Dress (Centered)
                  scale = min((canvas_w * target_coverage_w) / c_w, (canvas_h * target_coverage_h) / c_h)
                  new_w = int(c_w * scale)
                  new_h = int(c_h * scale)
                  c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                 
+                 paste_x = (canvas_w - new_w) // 2
+                 paste_y = (canvas_h - new_h) // 2
             
-            # Paste on White Canvas (Centered)
+            # Paste on White Canvas
             final_cloth = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
-            paste_x = (canvas_w - new_w) // 2
-            paste_y = (canvas_h - new_h) // 2
+            final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             if ootd_category == "Lower-body":
                  # Correction: Pants usually sit lower (waist), not centered vertically (which might put waist at chest).
