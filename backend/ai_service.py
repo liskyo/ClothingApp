@@ -247,34 +247,28 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX (Anatomical):
-                 # Problem: Centering pants on 1024h canvas places them at Chest-to-Knee (Shorts).
-                 # Solution: Place pants in the "Leg Zone" (Waist to Ankle).
+                 # PANTS FIX (Coverage):
+                 # Problem: Narrow pants (0.7) allow original wide shorts to "peek" out (Ghosting/Flaps).
+                 # Solution: Widen pants to COVER the original garment completely.
                  
-                 # 1. Scale
-                 # Target Height: ~60% of canvas (enough for waist to floor)
-                 target_h = int(canvas_h * 0.6) 
+                 # 1. Scale Dimensions
+                 # Height: 60% of canvas (Waist to Floor)
+                 target_h = int(canvas_h * 0.6)
                  
-                 # Maintain aspect ratio to avoid "Weird" distortion
-                 scale = target_h / c_h
-                 new_w = int(c_w * scale)
-                 new_h = target_h
+                 # Width: 90% of canvas (Max Width to mask original clothes)
+                 # We prefer them slightly wide than seeing the old clothes.
+                 # OOTD usually handles "oversized" inputs well by fitting them to legs.
+                 target_w = int(canvas_w * 0.9)
                  
-                 # Width Check: If scaling by height makes them too wide (> 80% canvas), cap width
-                 if new_w > canvas_w * 0.8:
-                     scale = (canvas_w * 0.8) / c_w
-                     new_w = int(c_w * scale)
-                     new_h = int(c_h * scale)
-                 
-                 c_img_resized = c_img_trimmed.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                 # Force Resize to this "Cover Box" (Maintains height but ensures width)
+                 # Note: We are ignoring aspect ratio slightly to ensure coverage.
+                 c_img_resized = c_img_trimmed.resize((target_w, target_h), Image.Resampling.LANCZOS)
                  
                  # 2. Position (Anatomical)
-                 # Waist should be roughly at 40-45% of canvas height?
-                 # Let's align Bottom to ~95% of canvas (Ankles/Floor).
-                 # paste_y = canvas_h - new_h - padding_bottom
+                 # Align Bottom to Ankle (Canvas 95%)
                  padding_bottom = 50 
-                 paste_y = canvas_h - new_h - padding_bottom
-                 paste_x = (canvas_w - new_w) // 2
+                 paste_y = canvas_h - target_h - padding_bottom
+                 paste_x = (canvas_w - target_w) // 2
                  
             else:
                  # Standard logic for Check/Upper/Dress (Centered)
@@ -291,14 +285,8 @@ class AIService:
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             if ootd_category == "Lower-body":
-                 # Correction: Pants usually sit lower (waist), not centered vertically (which might put waist at chest).
-                 # Shift down by 5% of canvas height?
-                 # No, standard OOTD dataset usually has them centered but let's try nudging down a bit if it helps.
-                 # Actually, centered is safest for "Full Body" inputs.
-                 pass
-            
-            # Vertical Adjustment for Pants: slightly lower? No, centered is standard for OOTD.
-            final_cloth.paste(c_img_resized, (paste_x, paste_y))
+                 # Debug print
+                 print(f"Pants Layout: Size {c_img_resized.size} at ({paste_x}, {paste_y}) for Max Coverage")
             
             # Save processed cloth
             proc_cloth_path = os.path.join(tempfile.gettempdir(), f"proc_cloth_{int(time.time())}.jpg")
@@ -373,7 +361,7 @@ class AIService:
                     category=ootd_category, 
                     n_samples=1,
                     n_steps=30, # High steps for quality
-                    image_scale=3.0, # Moderately High (3.0) for good shape but better blending than 3.5
+                    image_scale=5.0, # MAX SCALE (5.0) to Force-Overwrite Original Clothes
                     seed=-1,
                     api_name="/process_dc"
                 )
