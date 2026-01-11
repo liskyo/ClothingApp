@@ -329,14 +329,17 @@ class AIService:
             
                 # Handle Result (can be list or tuple)
                 out_path = None
-                if isinstance(result, list):
-                     # Usually list of dict or list of paths
-                     item = result[0]
-                     out_path = item.get('image') if isinstance(item, dict) else item
-                elif isinstance(result, tuple):
-                     out_path = result[0]
+                if result:
+                    if isinstance(result, list) and len(result) > 0:
+                         # Usually list of dict or list of paths
+                         item = result[0]
+                         out_path = item.get('image') if isinstance(item, dict) else item
+                    elif isinstance(result, tuple) and len(result) > 0:
+                         out_path = result[0]
+                    else:
+                         out_path = result
                 else:
-                     out_path = result
+                    print("GenAI returned empty result.")
                      
                 print(f"GenAI Result Path: {out_path}")
                 
