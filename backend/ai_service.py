@@ -593,6 +593,7 @@ class AIService:
         # 4. Post-Process: Resize back to Original Dimensions (User Request)
         if final_result_bytes:
             try:
+                from PIL import Image # Fix: Import Image locally to avoid NameError
                 # Get original size
                 with Image.open(io.BytesIO(person_img_bytes)) as orig_img:
                     orig_w, orig_h = orig_img.size
