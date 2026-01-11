@@ -259,52 +259,6 @@ class AIService:
             paste_y = 0
             
             # For Upper-body, usually top align is fine.
-            # For Lower-body, OOTD usually expects them Centered or slightly lower? 
-            # Actually OOTD pre-processor handles 'Lower-body' input by looking for the object. 
-            # But standardizing to Top-Center on a White Canvas is the safest "Clean Input".
-            if ootd_category == "Lower-body":
-                 # Maybe center vertically? No, standard OOTD inputs are usually full images.
-                 # Let's stick to Top-Center but add clear margin if needed. 
-                 # Actually, top-aligning pants might make them look like high-waist.
-                 # Let's center vertically for Lower-body?
-                 # No, consistent top-align is safer for now.
-                 pass
-            
-            canvas.paste(resized_img, (paste_x, paste_y))
-            
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
-                canvas.save(tf, format="JPEG")
-                proc_cloth_path = tf.name
-
-            print(f"Connecting to Gradio Space (OOTDiffusion) for {ootd_category} (orig: {category})...")
-            client = Client("levihsu/OOTDiffusion")
-            
-            # Save person bytes to temp file because gradio client needs path usually or handle_file
-            # Actually handle_file can wrap a path. We need to save bytes to disk first.
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-                f.write(person_bytes)
-                person_path = f.name
-            
-            # Call Gradio Client
-            # Using 'levihsu/OOTDiffusion'
-            result = client.predict(
-                vton_img=handle_file(person_path),
-                garm_img=handle_file(proc_cloth_path), # Use processed path
-                category=ootd_category, # "Upper-body", "Lower-body", "Dress"
-                n_samples=1,
-                n_steps=30, # Increased from 20 to 30 for better quality/coherence
-                image_scale=2.5, # Slightly increased guidance for better adherence
-                seed=-1,
-                api_name="/process_dc"
-            )
-            
-            # Result is a list of dicts or paths depending on return type.
-            # inspection says: [Gallery] output: List[Dict(image: filepath, caption: str | None)]
-            if result and len(result) > 0:
-                first_img = result[0]['image']
-                
                 # Check if it's a path or url
                 import shutil
                 with open(first_img, "rb") as r:
@@ -467,82 +421,11 @@ class AIService:
         elif method == 'overlay':
             print(f"Skipping GenAI due to explicit method='{method}'")
             
-        # 3. Fallback / Free Mode: Gemini Guided Overlay
+        # 3. Fallback: Removed.
+        # User requested NO overlay/paste results.
         if not final_result_bytes:
-            print("Using Free Mode: Gemini Guided Overlay")
-            try:
-                from PIL import Image, ImageOps
-                
-                # ... (Overlay Logic) ...
-                person_img = Image.open(io.BytesIO(person_img_bytes)).convert("RGBA")
-                cloth_img = Image.open(cloth_img_path)
-                
-                # Key Step: Remove Background from Cloth
-                cloth_img = self._remove_background_simple(cloth_img)
-
-                try:
-                    analysis = self.analyze_image_style(person_img_bytes)
-                except:
-                    analysis = {}
-                
-                center_x = analysis.get("torso_center_x", 0.5)
-                center_y = analysis.get("torso_center_y", 0.4)
-                width_ratio = analysis.get("shoulders", 0.5)
-                
-                p_width, p_height = person_img.size
-                
-                # Adjust scaling and position based on type
-                # Use explicit category if available
-                is_lower = category in ["Lower-body", "lower-body"] or "褲" in cloth_name or "裙" in cloth_name
-                is_dress = category in ["Dress", "Whole-body", "whole-body", "One-piece"] or "洋裝" in cloth_name
-                
-                if is_lower and not is_dress:
-                    # Pants/Skirt: Center lower
-                    target_width = int(p_width * width_ratio * 1.3)
-                else:
-                    # Shirt/Dress
-                    target_width = int(p_width * width_ratio * 1.5) 
-                
-                # Maintain aspect ratio of cloth
-                c_width, c_height = cloth_img.size
-                
-                # Explicit proportion override (User requested JSON control)
-                if height_ratio and height_ratio > 0:
-                    print(f"Using explicit height ratio from JSON: {height_ratio}")
-                    target_height = int(p_height * height_ratio)
-                    if c_height > 0:
-                         # Recalculate width to maintain aspect
-                         aspect = c_width / c_height
-                         target_width = int(target_height * aspect)
-                elif c_width > 0:
-                    aspect = c_height / c_width
-                    target_height = int(target_width * aspect)
-                else:
-                    target_height = target_width # Fallback
-                
-                resized_cloth = cloth_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-                
-                # Calculate Position
-                pos_x = int((center_x * p_width) - (target_width / 2))
-                
-                if is_lower and not is_dress:
-                    # Place at "waist" approx
-                    pos_y = int((center_y * p_height) + (p_height * 0.05))
-                else:
-                    # Place at "shoulders" approx
-                    pos_y = int((center_y * p_height) - (target_height / 3))
-                
-                result = Image.new("RGBA", person_img.size, (0,0,0,0))
-                result.paste(person_img, (0,0))
-                result.paste(resized_cloth, (pos_x, pos_y), resized_cloth) 
-                
-                output = io.BytesIO()
-                result.convert("RGB").save(output, format="JPEG", quality=90)
-                final_result_bytes = output.getvalue()
-                
-            except Exception as e:
-                print(f"Free VTON Error: {e}")
-                raise e
+             print("GenAI failed and Fallback is disabled.")
+             raise Exception("生成失敗：AI 模型無回應，請稍後再試。")
         
         # 4. Post-Process: Resize back to Original Dimensions (User Request)
         if final_result_bytes:
