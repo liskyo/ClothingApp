@@ -48,7 +48,6 @@ const onUserFileChange = async (e: Event) => {
     // Start Analysis
     // Temporarily leverage the general loading state or a specific one?
     // Let's use a quick indicator on the preview card
-    const isAnalyzing = ref(true) 
     // We can't inject local var into template easily without ref.
     // Let's add 'analyzingAvatar' state.
     
