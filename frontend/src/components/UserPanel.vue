@@ -19,6 +19,7 @@ const userPhotoPreview = ref<string | null>(null)
 const selectedCloth = ref<Cloth | null>(null)
 const tryOnResult = ref<string | null>(null)
 const loading = ref(false)
+const isValidating = ref(false)
 
 const fetchClothes = async () => {
   try {
@@ -45,20 +46,11 @@ const onUserFileChange = async (e: Event) => {
     // Show raw preview first
     userPhotoPreview.value = URL.createObjectURL(rawFile)
     
-    // Start Analysis
-    // Temporarily leverage the general loading state or a specific one?
-    // Let's use a quick indicator on the preview card
-    // We can't inject local var into template easily without ref.
-    // Let's add 'analyzingAvatar' state.
-    
     // Call Backend
     const formData = new FormData()
     formData.append('file', rawFile)
     
-    // Toast or Status? Use JS Alert for now as requested "Prompt"
-    // Better: Show visual "Scanning..."
-    loading.value = true // Reuse global loader for simplicity? Or confusing with TryOn?
-    // Confusing. Let's rely on alert/logic.
+    isValidating.value = true
     
     try {
         const res = await axios.post('/api/validate-avatar', formData, {
@@ -72,17 +64,10 @@ const onUserFileChange = async (e: Event) => {
         userFile.value = processedFile
         userPhotoPreview.value = URL.createObjectURL(processedBlob)
         
-        // Optional: Notify success?
-        // alert("照片驗證成功！已自動調整最佳比例。")
-        
     } catch (err: any) {
         console.error(err)
         // Failure: AI says Rejection
         if (err.response && err.response.status === 400) {
-            // Read blob to text (messy in axios blob response)
-            // Axios blob response containing JSON error is tricky.
-            // Simplified: If status 400, it's validation error.
-            // We need to parse the blob to get value.
             const errorBlob = err.response.data
             const reader = new FileReader()
             reader.onload = () => {
@@ -98,6 +83,10 @@ const onUserFileChange = async (e: Event) => {
              alert('照片分析連線失敗，將使用原始照片。')
              userFile.value = rawFile
         }
+    } finally {
+        isValidating.value = false
+        // Reset file input so checking same file again works if needed
+        target.value = ''
     }
   }
 }
@@ -182,6 +171,13 @@ onMounted(() => {
                    <span>User Photo Preview</span>
                 </p>
                 <img v-else :src="userPhotoPreview" class="w-full h-full object-cover" />
+                
+                <!-- Validation Loading Overlay -->
+                <div v-if="isValidating" class="absolute inset-0 z-10 bg-slate-900/80 backdrop-blur flex flex-col items-center justify-center">
+                     <div class="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                     <span class="text-green-400 text-sm font-bold animate-pulse">Analyzing & Cropping...</span>
+                </div>
+                
                 <div class="absolute top-3 left-3 bg-black/50 backdrop-blur px-3 py-1 rounded-full text-xs text-white">Your Photo</div>
             </div>
 
