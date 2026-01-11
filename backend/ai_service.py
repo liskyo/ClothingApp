@@ -267,6 +267,11 @@ class AIService:
             from PIL import Image, ImageOps
             import io
             
+            # Restore missing logic: Save person_bytes to file first
+            person_path = os.path.join(tempfile.gettempdir(), f"person_{int(time.time())}.jpg")
+            with open(person_path, "wb") as f:
+                f.write(person_bytes)
+            
             with open(person_path, "rb") as f:
                 orig_pil = Image.open(f).convert("RGB")
                 
