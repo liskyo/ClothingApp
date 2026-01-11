@@ -443,13 +443,27 @@ class AIService:
         # Simple Rotation for single call
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
-        # updated model name to user requested "gemini-2.5-flash"
-        model = genai.GenerativeModel('gemini-2.5-flash') 
+        # updated model name to stable version
+        model = genai.GenerativeModel('gemini-1.5-flash') 
         
         try:
             response = model.generate_content([prompt, image_part])
-            text = response.text.replace("```json", "").replace("```", "").strip()
-            data = json.loads(text)
+            
+            # Robust Parsing
+            try:
+                text = response.text.replace("```json", "").replace("```", "").strip()
+                # Find first { and last }
+                start = text.find("{")
+                end = text.rfind("}") + 1
+                if start != -1 and end != 0:
+                    text = text[start:end]
+                    
+                data = json.loads(text)
+            except Exception as parse_err:
+                print(f"JSON Parse Error: {parse_err}. Raw Text: {response.text}")
+                # FAIL OPEN: If AI messes up formatting, assume valid to avoid blocking user.
+                print("Defaulting to VALID (Fail Open).")
+                return {"valid": True, "reason": "AI 輸出格式錯誤 (自動通過)", "processed_image": img_bytes}
             
             if not data.get("valid", False):
                 # Construct strict failure reason

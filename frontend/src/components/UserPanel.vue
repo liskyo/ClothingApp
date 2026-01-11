@@ -133,8 +133,15 @@ const onUserFileChange = async (e: Event) => {
                 try {
                      const parser = JSON.parse(reader.result as string)
                      alert(`照片不符合試穿規格：\n${parser.message}\n\n請重新上傳單人、正面、清晰的全身照。`)
+                     // Clear preview
+                     userFile.value = null
+                     userPhotoPreview.value = null
+                     target.value = '' // Clear input
                 } catch {
                      alert("照片不符合規格 (無法讀取原因)")
+                     userFile.value = null
+                     userPhotoPreview.value = null
+                     target.value = ''
                 }
             }
             reader.readAsText(errorBlob)
