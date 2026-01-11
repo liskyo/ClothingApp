@@ -388,11 +388,13 @@ class AIService:
             }
         """
         if not self.gemini_keys:
-             return {"valid": True, "reason": "No AI Key, skipping validation", "processed_image": img_bytes}
+             print("CRITICAL: No Gemini API Key found. Validation cannot proceed.")
+             # Fallback to REJECT to prevent bypassing checks.
+             return {"valid": False, "reason": "系統設定錯誤：未檢測到 AI 金鑰 (GEMINI_API_KEY)，無法進行驗證。", "processed_image": None}
 
         genai = self._get_genai_module()
         if not genai:
-            return {"valid": True, "reason": "No AI Module", "processed_image": img_bytes}
+            return {"valid": False, "reason": "系統環境錯誤：缺少 Google GenAI 模組。", "processed_image": None}
             
         # 1. Gemini Analysis
         prompt = """
