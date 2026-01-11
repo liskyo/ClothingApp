@@ -247,28 +247,25 @@ class AIService:
             c_w, c_h = c_img_trimmed.size
             
             if ootd_category == "Lower-body":
-                 # PANTS FIX (Coverage):
-                 # Problem: Narrow pants (0.7) allow original wide shorts to "peek" out (Ghosting/Flaps).
-                 # Solution: Widen pants to COVER the original garment completely.
+                 # PANTS FIX (Shape Priority):
+                 # Problem: "Coverage" fix made pants wide (Square aspect ratio), causing AI to generate Shorts.
+                 # Solution: Prioritize SHAPE. Pants must be TALL and THIN (Ratio < 0.5) to be interpreted as "Long Pants".
                  
-                 # 1. Scale Dimensions
-                 # Height: 60% of canvas (Waist to Floor)
-                 target_h = int(canvas_h * 0.6)
+                 # 1. Dimensions
+                 # Height: 90% of canvas (Max Length)
+                 target_h = int(canvas_h * 0.9)
                  
-                 # Width: 90% of canvas (Max Width to mask original clothes)
-                 # We prefer them slightly wide than seeing the old clothes.
-                 # OOTD usually handles "oversized" inputs well by fitting them to legs.
-                 target_w = int(canvas_w * 0.9)
+                 # Width: 50% of canvas (Slim/Leg-like)
+                 # We compromise coverage for Correct Classification (Pants vs Shorts)
+                 target_w = int(canvas_w * 0.5)
                  
-                 # Force Resize to this "Cover Box" (Maintains height but ensures width)
-                 # Note: We are ignoring aspect ratio slightly to ensure coverage.
+                 # Force Resize to "Long Pants Shape"
                  c_img_resized = c_img_trimmed.resize((target_w, target_h), Image.Resampling.LANCZOS)
                  
-                 # 2. Position (Anatomical)
-                 # Align Bottom to Ankle (Canvas 95%)
-                 padding_bottom = 50 
-                 paste_y = canvas_h - target_h - padding_bottom
+                 # 2. Position (Centered)
+                 # Revert to Centered because OOTD Preprocessing usually expects centered inputs and handles placement.
                  paste_x = (canvas_w - target_w) // 2
+                 paste_y = (canvas_h - target_h) // 2
                  
             else:
                  # Standard logic for Check/Upper/Dress (Centered)
@@ -285,8 +282,7 @@ class AIService:
             final_cloth.paste(c_img_resized, (paste_x, paste_y))
             
             if ootd_category == "Lower-body":
-                 # Debug print
-                 print(f"Pants Layout: Size {c_img_resized.size} at ({paste_x}, {paste_y}) for Max Coverage")
+                 print(f"Pants Layout: SHAPE PRIORITY - Size {c_img_resized.size} (Ratio {target_w/target_h:.2f})")
             
             # Save processed cloth
             proc_cloth_path = os.path.join(tempfile.gettempdir(), f"proc_cloth_{int(time.time())}.jpg")
