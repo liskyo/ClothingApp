@@ -456,18 +456,31 @@ class AIService:
             p_h = ymax - ymin
             p_w = xmax - xmin
             
-            # Target: Person Height = 75% of Canvas Height
-            # Target Canvas Height = p_h / 0.75
-            target_canvas_h = int(p_h / 0.75)
+            # Smart Pass-through Check:
+            # If image is already portrait (approx 3:4) AND person is big enough, KEEP ORIGINAL.
+            # 3:4 = 0.75. Accept range 0.6 to 0.85
+            img_aspect = w / h
+            is_portrait = 0.6 <= img_aspect <= 0.85
+            
+            # Check Person Coverage (height)
+            coverage = p_h / h
+            is_big_enough = coverage > 0.6 # If person covers > 60% of height
+            
+            if is_portrait and is_big_enough:
+                 print("Image is already good (Portrait + Full Body). Keeping original.")
+                 return {"valid": True, "reason": "OK (Original Kept)", "processed_image": img_bytes}
+
+            # If resizing needed (e.g. landscape, or person too small)
+            # Target: Person Height = 90% of Canvas Height (User complained 75% was too small)
+            target_canvas_h = int(p_h / 0.90)
             
             # Target Aspect Ratio 3:4 (0.75)
-            # Target Canvas Width = target_canvas_h * 0.75 = p_h
             target_canvas_w = int(target_canvas_h * 0.75)
             
             # Ensure canvas is wide enough for person
             if target_canvas_w < p_w * 1.1: # Add 10% minimal side padding margin
                 target_canvas_w = int(p_w * 1.1)
-                target_canvas_h = int(target_canvas_w / 0.75) # Re-adjust height to match ratio
+                target_canvas_h = int(target_canvas_w / 0.75) 
             
             # Create Canvas
             canvas = Image.new("RGB", (target_canvas_w, target_canvas_h), (255, 255, 255))
@@ -475,9 +488,7 @@ class AIService:
             # Crop Person
             person_crop = img.crop((xmin, ymin, xmax, ymax))
             
-            # Paste Position: Bottom Center? Or Vertically Centered?
-            # User said: "Display frame 3/4 Size" -> usually implies centered with margins.
-            # Let's Center Vertically.
+            # Paste Position: Vertically Centered, Horizontally Centered
             paste_x = (target_canvas_w - p_w) // 2
             paste_y = (target_canvas_h - p_h) // 2
             
@@ -487,7 +498,7 @@ class AIService:
             canvas.save(buf, format="JPEG", quality=95)
             processed_bytes = buf.getvalue()
             
-            return {"valid": True, "reason": "OK", "processed_image": processed_bytes}
+            return {"valid": True, "reason": "OK (Auto-Cropped)", "processed_image": processed_bytes}
 
         except Exception as e:
             print(f"Validation Error: {e}")
