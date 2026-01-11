@@ -246,14 +246,28 @@ class AIService:
             
             if ootd_category == "Lower-body":
                  # PANTS FIX: Pants need to be BIG to prevent becoming shorts.
-                 # If user specified height_ratio, use it to control vertical scale (relative to canvas).
-                 # Otherwise, default to ensuring they look long.
+                 # If user specified height_ratio, use it to control vertical scale.
                  if height_ratio:
                      target_coverage_h = min(height_ratio, 0.95)
                  else:
                      target_coverage_h = 0.95 # Default to very long for pants
+                 
+                 # CRITICAL FIX: Aspect Ratio Forcing
+                 # If the input pants image is square or wide (e.g. folded jeans), scaling to width will result in short height.
+                 # We must DISTORT (Stretch) the pants to be tall and thinish to force "Long Pants" structure.
+                 
+                 # Current Aspect Ratio
+                 c_aspect = c_w / c_h
+                 target_aspect = 0.6 # Tall and thin (like legs)
+                 
+                 if c_aspect > target_aspect:
+                     # It's too wide. Stretch Height.
+                     print(f"Pants are too wide (Ratio {c_aspect:.2f}). Stretching to {target_aspect}...")
+                     new_forced_h = int(c_w / target_aspect)
+                     c_img_trimmed = c_img_trimmed.resize((c_w, new_forced_h), Image.Resampling.LANCZOS)
+                     c_w, c_h = c_img_trimmed.size # Update size
             
-            c_w, c_h = c_img_trimmed.size
+            # Recalculate scale with potentially new dimensions
             scale = min((canvas_w * target_coverage_w) / c_w, (canvas_h * target_coverage_h) / c_h)
             
             new_w = int(c_w * scale)
