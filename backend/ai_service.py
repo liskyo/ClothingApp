@@ -444,7 +444,8 @@ class AIService:
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
         # updated model name to stable version
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        # gemini-1.5-flash gave 404. Using gemini-flash-latest which is confirmed available.
+        model = genai.GenerativeModel('gemini-flash-latest') 
         
         try:
             response = model.generate_content([prompt, image_part])
