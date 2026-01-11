@@ -276,7 +276,9 @@ class AIService:
                  if ootd_category == "Dress":
                      target_coverage_h = 0.85 # Long dress
                  elif ootd_category == "Lower-body":
-                     target_coverage_h = 0.65 # Long pants/skirt
+                    # Default to Ankle Length (0.8) to force pants/long skirts.
+                    # User reported 0.65 turned jeans into shorts.
+                    target_coverage_h = 0.82
                  else:
                      # Upper-body: Enforce "Full Coverage" (Long Shirt) by default
                      # Previously 0.0 (Width Mode) allowed crop-tops to stay short.
