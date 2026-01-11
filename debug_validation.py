@@ -1,37 +1,17 @@
+import google.generativeai as genai
 import os
-import sys
 from dotenv import load_dotenv
 
-# Load env vars first
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+keys_str = os.getenv("GEMINI_API_KEY", "")
+keys = [k.strip() for k in keys_str.split(',') if k.strip()]
 
-# Add project root to path
-sys.path.append(os.path.dirname(__file__))
+genai.configure(api_key=keys[0])
 
-from backend.ai_service import AIService
-
-def test_validation():
-    print("Initializing Service (with gemini-2.0-flash)...")
-    service = AIService()
-    
-    img_path = r"C:/Users/liskyo/.gemini/antigravity/brain/bf0bec16-d2b5-41cc-bd94-8076de1e9832/uploaded_image_1768130701560.png"
-    
-    if not os.path.exists(img_path):
-        print(f"Error: Image not found at {img_path}")
-        return
-
-    print(f"Testing validation on: {img_path}")
-    
-    with open(img_path, "rb") as f:
-        img_bytes = f.read()
-        
-    result = service.validate_and_crop_user_photo(img_bytes)
-    
-    print("-" * 30)
-    print("VALIDATION RESULT:")
-    print(f"Valid: {result.get('valid')}")
-    print(f"Reason: {result.get('reason')}")
-    print("-" * 30)
-
-if __name__ == "__main__":
-    test_validation()
+print("Listing models to find 2.5/3...")
+try:
+    for m in genai.list_models():
+         if 'gemini' in m.name:
+             print(f"Model: {m.name}")
+except Exception as e:
+    print(f"Error listing: {e}")

@@ -421,10 +421,8 @@ class AIService:
         # Simple Rotation for single call
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
-        # updated model name to available one
-        model = genai.GenerativeModel('gemini-2.0-flash') 
-        
-        processed_bytes = img_bytes
+        # updated model name to user requested "gemini-2.5-flash"
+        model = genai.GenerativeModel('gemini-2.5-flash') 
         
         try:
             response = model.generate_content([prompt, image_part])
@@ -443,67 +441,10 @@ class AIService:
                 
                 return {"valid": False, "reason": full_reason, "processed_image": None}
             
-            # 2. Auto-Crop Logic
-            box = data.get("box_2d", [100, 100, 900, 900]) # ymin, xmin, ymax, xmax (0-1000)
-            
-            from PIL import Image
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-            w, h = img.size
-            
-            # Normalize box to pixels
-            ymin = int(box[0] / 1000 * h)
-            xmin = int(box[1] / 1000 * w)
-            ymax = int(box[2] / 1000 * h)
-            xmax = int(box[3] / 1000 * w)
-            
-            # Person Dimensions
-            p_h = ymax - ymin
-            p_w = xmax - xmin
-            
-            # Smart Pass-through Check:
-            # If image is already portrait (approx 3:4) AND person is big enough, KEEP ORIGINAL.
-            # 3:4 = 0.75. 9:16 = 0.5625.
-            # Relaxed range: 0.50 to 0.85 to support standard phone screenshots/photos.
-            img_aspect = w / h
-            is_portrait = 0.50 <= img_aspect <= 0.85
-            
-            # Check Person Coverage (height)
-            coverage = p_h / h
-            is_big_enough = coverage > 0.6 # If person covers > 60% of height
-            
-            if is_portrait and is_big_enough:
-                 print("Image is already good (Portrait + Full Body). Keeping original.")
-                 return {"valid": True, "reason": "OK (Original Kept)", "processed_image": img_bytes}
-
-            # If resizing needed (e.g. landscape, or person too small)
-            # Target: Person Height = 90% of Canvas Height (User complained 75% was too small)
-            target_canvas_h = int(p_h / 0.90)
-            
-            # Target Aspect Ratio 3:4 (0.75)
-            target_canvas_w = int(target_canvas_h * 0.75)
-            
-            # Ensure canvas is wide enough for person
-            if target_canvas_w < p_w * 1.1: # Add 10% minimal side padding margin
-                target_canvas_w = int(p_w * 1.1)
-                target_canvas_h = int(target_canvas_w / 0.75) 
-            
-            # Create Canvas
-            canvas = Image.new("RGB", (target_canvas_w, target_canvas_h), (255, 255, 255))
-            
-            # Crop Person
-            person_crop = img.crop((xmin, ymin, xmax, ymax))
-            
-            # Paste Position: Vertically Centered, Horizontally Centered
-            paste_x = (target_canvas_w - p_w) // 2
-            paste_y = (target_canvas_h - p_h) // 2
-            
-            canvas.paste(person_crop, (paste_x, paste_y))
-            
-            buf = io.BytesIO()
-            canvas.save(buf, format="JPEG", quality=95)
-            processed_bytes = buf.getvalue()
-            
-            return {"valid": True, "reason": "OK (Auto-Cropped)", "processed_image": processed_bytes}
+            # User Request: "If valid, do not move/resize photo". 
+            # We skip all auto-crop logic and return original bytes.
+            print("Validation Passed. Keeping original image as requested.")
+            return {"valid": True, "reason": "OK (Original Kept)", "processed_image": img_bytes}
 
         except Exception as e:
             print(f"Validation Error: {e}")
