@@ -244,6 +244,8 @@ class AIService:
             target_coverage_w = 0.9
             target_coverage_h = 0.9
             
+            c_w, c_h = c_img_trimmed.size
+            
             if ootd_category == "Lower-body":
                  # PANTS FIX: Pants need to be BIG to prevent becoming shorts.
                  # If user specified height_ratio, use it to control vertical scale.

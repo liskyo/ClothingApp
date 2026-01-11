@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def create_dummy_pants_image():
-    # Create a simple blue rectangle image representing jeans
-    img = Image.new('RGB', (500, 800), (255, 255, 255))
-    # Draw blue pants shape (roughly)
+    # Create a WIDE blue rectangle image representing folded jeans (to trigger aspect ratio fix)
+    img = Image.new('RGB', (800, 600), (255, 255, 255))
+    # Draw blue pants shape
     from PIL import ImageDraw
     draw = ImageDraw.Draw(img)
-    draw.rectangle([100, 0, 400, 800], fill=(50, 100, 200)) # Blue legs
-    path = "dummy_pants.jpg"
+    draw.rectangle([100, 100, 700, 500], fill=(50, 100, 200)) 
+    path = "dummy_pants_wide.jpg"
     img.save(path)
     return path
 
