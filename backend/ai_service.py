@@ -418,7 +418,7 @@ class AIService:
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
         # updated model name to try and fix 404
-        model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+        model = genai.GenerativeModel('gemini-1.5-flash-001') 
         
         processed_bytes = img_bytes
         
