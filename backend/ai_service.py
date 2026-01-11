@@ -417,7 +417,8 @@ class AIService:
         # Simple Rotation for single call
         key = self.gemini_keys[0] # Just use first key for this helper
         genai.configure(api_key=key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # updated model name to try and fix 404
+        model = genai.GenerativeModel('gemini-1.5-flash-latest') 
         
         processed_bytes = img_bytes
         
@@ -490,9 +491,8 @@ class AIService:
 
         except Exception as e:
             print(f"Validation Error: {e}")
-            # On error, allow aggressive fallback? Or block?
-            # Let's allow but warn.
-            return {"valid": True, "reason": "AI 驗證連線失敗 (已略過)", "processed_image": img_bytes}
+            # Strict Failure: Do not allow bypass on error
+            return {"valid": False, "reason": f"AI 驗證連線失敗: {str(e)}", "processed_image": None}
 
     def _add_watermark(self, img_bytes: bytes, text: str = "僅供穿搭參考，並非真實穿著效果") -> bytes:
         """
