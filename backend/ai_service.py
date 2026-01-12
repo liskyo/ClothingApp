@@ -49,11 +49,13 @@ class AIService:
             print(f"Failed to import replicate: {e}")
             return None
 
-    def _mock_analysis(self) -> dict:
+    def _mock_analysis(self, reason: str = "") -> dict:
         # MOCK RESPONSE (Fallback)
+        # Debug: Include reason in name so user can see it in UI
+        suffix = f" - {reason}" if reason else "(Mock)"
         return {
-            "name": "AI辨識之衣服(Mock)",
-            "style": "時尚休閒(Mock)"
+            "name": f"AI辨識之衣服{suffix}",
+            "style": f"時尚休閒{suffix}"
         }
 
     def analyze_image_style(self, image_bytes: bytes) -> dict:
@@ -63,12 +65,12 @@ class AIService:
         """
         if not self.gemini_keys:
             print("Gemini API key not found. Using mock response.")
-            return self._mock_analysis()
+            return self._mock_analysis("無 API Key")
 
         genai = self._get_genai_module()
         if not genai:
             print("Gemini module not available.")
-            return self._mock_analysis()
+            return self._mock_analysis("無法載入 Google 模組")
 
         # Complex Prompt: asking for Style + Bounding Box
         prompt = """

@@ -115,29 +115,49 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
         # Filter logic
         filtered = all_clothes
         if gender:
-            filtered = [c for c in filtered if gender in c['gender']]
+            # "中性" matches "女性"? Debatable. 
+            # Current logic: if "女性", we want items marked "女性" or "中性"?
+            # User Input: "女性" -> returns items with gender="女性" or "中性" (maybe?)
+            # Or if item is "中性", it matches everyone.
+            # Let's adjust: Item matches if item.gender == '中性' OR item.gender == user_gender
+            if gender != '中性':
+                filtered = [c for c in filtered if c['gender'] == '中性' or gender in c['gender']]
+            else:
+                 # Users selecting "中性" might want everything or just neutral?
+                 # Usually users select their OWN gender.
+                 # If user says "中性", they see "中性" items.
+                 filtered = [c for c in filtered if c['gender'] == '中性']
+
         if height:
-            # Simple string match for now. 
-            # Ideally, we should parse "150-165cm" into ranges and check overlap.
-            # For prototype, we check if the search term is in the range string.
-            filtered = [c for c in filtered if height in c['height_range']]
+            # Range Logic: Parse "155-175"
+            def is_in_range(user_h, range_str):
+                try:
+                    # Extract numbers
+                    import re
+                    nums = re.findall(r'\d+', range_str)
+                    if len(nums) >= 2:
+                        min_h, max_h = int(nums[0]), int(nums[1])
+                        return min_h <= int(user_h) <= max_h
+                    if len(nums) == 1:
+                        # Maybe "160+" or "160cm"
+                        return int(nums[0]) - 5 <= int(user_h) <= int(nums[0]) + 5
+                    return False
+                except:
+                    return False
+
+            filtered = [c for c in filtered if is_in_range(height, c.get('height_range', ''))]
             
         # Add image URL to response
         for c in filtered:
-            # If item has 'image_url', use it (Cloudinary or predefined local)
-            # If not, fallback to legacy ID-based local path
             if 'image_url' not in c or not c['image_url']:
                 c['image_url'] = f"/images/{c['id']}.jpg"
-            
-            # If it's a local path but not absolute (starts with /), ensure it's correct context?
-            # Our frontend expects /images/... which is relative to root domain.
-            # Cloudinary URL starts with http.
 
         return filtered
     except Exception as e:
         print(f"Error in get_clothes: {e}")
         import traceback
         traceback.print_exc()
+        return []
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/upload")
