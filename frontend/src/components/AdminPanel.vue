@@ -64,10 +64,13 @@ const saveEdit = async () => {
   }
 }
 
+const previewUrl = ref('')
+
 const onFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement
-  if (target.files) {
+  if (target.files && target.files[0]) {
     file.value = target.files[0]
+    previewUrl.value = URL.createObjectURL(file.value)
   }
 }
 
@@ -108,9 +111,14 @@ const upload = async () => {
       <!-- Upload Section (Existing) -->
       <div class="group">
         <label class="block text-sm font-medium text-slate-400 mb-2">Upload Image</label>
-        <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center">
-          <input type="file" @change="onFileChange" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-          <div class="space-y-2">
+        <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center relative overflow-hidden">
+          <input type="file" @change="onFileChange" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
+          
+          <div v-if="previewUrl" class="absolute inset-0 w-full h-full bg-slate-900 z-0">
+             <img :src="previewUrl" class="w-full h-full object-contain" />
+          </div>
+
+          <div v-else class="space-y-2 relative z-0">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto text-slate-400 group-hover:text-purple-400 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>

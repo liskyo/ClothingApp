@@ -174,22 +174,31 @@ async def upload_clothing(
                 uploaded_to_cloud = True
             except Exception as e:
                 print(f"Cloudinary Upload Failed: {e}. Fallback to local.")
+                # Important: If Cloudinary fails, we set flag to False so we try local
+                uploaded_to_cloud = False
         
-        if not uploaded_to_cloud:
-            # Local Fallback
-            # Generate a temp ID first or use uuid?
-            # Let's generate a temp filename, but we usually need ID first.
-            # But ClothesManager generates ID. 
-            # We can use a temp name and rename, or just use timestamp
-            import time
-            temp_id = f"temp_{int(time.time())}"
-            filename = f"{temp_id}.jpg"
-            file_path = os.path.join(MODEL_DIR, filename)
-            
-            with open(file_path, "wb") as f:
-                f.write(content)
-            
-            image_url = f"/images/{filename}"
+        if not cloudinary_url:
+            print("Warning: CLOUDINARY_URL not set. Attempting local save.")
+            # Fallback to local storage (Volatile on Vercel)
+            # Use tempfile or standard path, but handle Read-Only errors
+            try:
+                import time
+                temp_id = f"temp_{int(time.time())}"
+                filename = f"{temp_id}.jpg"
+                
+                # Check write permissions implicitly
+                file_path = os.path.join(MODEL_DIR, filename)
+                
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                
+                image_url = f"/images/{filename}"
+            except OSError as e:
+                print(f"Local Save Failed (Read-Only FS?): {e}")
+                # If we cannot save locally and not on Cloudinary, we must fail or warn
+                if not uploaded_to_cloud:
+                   raise HTTPException(status_code=500, detail="Storage Error: Cannot save file (Cloudinary not configured & Local FS read-only).")
+
 
         # Add to database
         # Note: If local, we might want to update the filename with real ID later, 

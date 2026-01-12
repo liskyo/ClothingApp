@@ -43,7 +43,10 @@ class ClothesManager:
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump([], f, ensure_ascii=False, indent=4)
         except OSError as e:
-            print(f"Could not create data file (likely read-only FS): {e}")
+            # Important for Vercel: If read-only, we just log and continue.
+            # The app will work but data won't persist if not using Mongo.
+            print(f"Could not create data file (Read-Only Filesystem?): {e}")
+            print("Running in volatile mode (In-Memory only if no DB).")
 
     def get_all_clothes(self) -> List[Dict]:
         if self.use_mongo:
@@ -198,5 +201,8 @@ class ClothesManager:
             print("Warning: Bulk save not implemented for MongoDB mode.")
             return
 
-        with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump(clothes_list, f, ensure_ascii=False, indent=4)
+        try:
+            with open(self.data_file, 'w', encoding='utf-8') as f:
+                json.dump(clothes_list, f, ensure_ascii=False, indent=4)
+        except OSError as e:
+            print(f"Failed to save data file (Read-Only FS?): {e}")
