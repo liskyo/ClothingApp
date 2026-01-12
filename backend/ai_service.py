@@ -631,24 +631,28 @@ class AIService:
                          "human_img": io.BytesIO(person_img_bytes),
                          "garm_img": open(cloth_img_path, "rb"),
                          "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
-                         "crop": False, # We handle cropping/padding ourselves? Or let it handle? 
-                         # IDM-VTON usually handles auto-crop well.
+                         "crop": False, 
                          "seed": 42,
                          "steps": 30
                      }
                  )
-                 print(f"Replicate Result: {output}")
+                 print(f"Replicate Result URL: {output}")
                  if output:
                      # Replicate returns a URL
                      import requests
                      res = requests.get(output)
                      if res.status_code == 200:
                          final_result_bytes = res.content
+                         print("Replicate success. Image downloaded.")
+                     else:
+                         print(f"Replicate URL download failed: {res.status_code}")
                          
              except Exception as e:
                  print(f"Replicate Error: {e}")
                  # Fallthrough to Gradio
                  pass 
+        else:
+             print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
              
         # 2. Gradio (Free GenAI)
         if method != 'overlay' and not final_result_bytes:
