@@ -24,6 +24,15 @@ class AIService:
         # Replicate Setup
         self.replicate_token = os.getenv("REPLICATE_API_TOKEN")
 
+        # Debug Logging
+        if self.gemini_keys:
+            print(f"✅ Gemini Service Initialized with {len(self.gemini_keys)} keys.")
+        else:
+            print("⚠️ Gemini Service: No API Keys found (Env: GEMINI_API_KEY or GOOGLE_API_KEY)")
+            
+        if not self.replicate_token:
+            print("⚠️ Replicate Service: No Token found")
+
     def _get_genai_module(self):
         try:
             import google.generativeai as genai
