@@ -111,14 +111,14 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
             
         # Add image URL to response
         for c in filtered:
-            # Assume existing files have .jpg extension if not specified in ID?
-            # The ID generation adds extension-less ID.
-            # But we need to map ID to filename.
-            # Implementation Detail: When uploading, we should probably save as {id}.jpg
-            # and checking if parsing legacy IDs (which might be 001.jpg or just 001).
+            # If item has 'image_url', use it (Cloudinary or predefined local)
+            # If not, fallback to legacy ID-based local path
+            if 'image_url' not in c or not c['image_url']:
+                c['image_url'] = f"/images/{c['id']}.jpg"
             
-            # Let's assume files are named {id}.jpg for simplicity in this new system.
-            c['image_url'] = f"/images/{c['id']}.jpg"
+            # If it's a local path but not absolute (starts with /), ensure it's correct context?
+            # Our frontend expects /images/... which is relative to root domain.
+            # Cloudinary URL starts with http.
 
         return filtered
     except Exception as e:
@@ -135,10 +135,9 @@ async def upload_clothing(
 ):
     """
     Upload a clothing image.
-    1. Save temporarily.
-    2. Analyze with AI (Mock).
-    3. Save permanently with generated ID.
-    4. Update database.
+    1. Analyze with AI (Mock or Real).
+    2. Upload to Cloudinary (if configured) or Save Locally.
+    3. Save to DB (MongoDB or JSON).
     """
     try:
         # Read file content
@@ -149,28 +148,68 @@ async def upload_clothing(
         name = analysis.get("name", "未命名")
         style = analysis.get("style", "一般")
         
-        # Add to database to get ID
-        new_id = clothes_manager.add_clothing_item(name, height_range, gender, style)
+        image_url = ""
+        filename = ""
         
-        # Save file to model directory with ID
-        # Preserve original extension or enforce jpg? Enforcing jpg is easier.
-        filename = f"{new_id}.jpg"
-        file_path = os.path.join(MODEL_DIR, filename)
+        # Check for Cloudinary
+        cloudinary_url = os.getenv("CLOUDINARY_URL")
+        uploaded_to_cloud = False
         
-        with open(file_path, "wb") as f:
-            f.write(content)
+        if cloudinary_url:
+            try:
+                import cloudinary
+                import cloudinary.uploader
+                import io
+                
+                # Cloudinary auto-configures from CLOUDINARY_URL env var
+                # Upload directly from bytes, needs BytesIO
+                print("Uploading to Cloudinary...")
+                # Wrap bytes in BytesIO and naming it helps Cloudinary detect type
+                file_obj = io.BytesIO(content)
+                file_obj.name = "upload.jpg" 
+                
+                response = cloudinary.uploader.upload(file_obj, folder="clothing_app")
+                image_url = response.get("secure_url")
+                print(f"Cloudinary Upload Success: {image_url}")
+                uploaded_to_cloud = True
+            except Exception as e:
+                print(f"Cloudinary Upload Failed: {e}. Fallback to local.")
+        
+        if not uploaded_to_cloud:
+            # Local Fallback
+            # Generate a temp ID first or use uuid?
+            # Let's generate a temp filename, but we usually need ID first.
+            # But ClothesManager generates ID. 
+            # We can use a temp name and rename, or just use timestamp
+            import time
+            temp_id = f"temp_{int(time.time())}"
+            filename = f"{temp_id}.jpg"
+            file_path = os.path.join(MODEL_DIR, filename)
             
+            with open(file_path, "wb") as f:
+                f.write(content)
+            
+            image_url = f"/images/{filename}"
+
+        # Add to database
+        # Note: If local, we might want to update the filename with real ID later, 
+        # but for simplicity, let's just keep the temp name or handle it.
+        # Actually, if we use MongoDB, ID is generated there.
+        # If we use local JSON, ID is generated there.
+        
+        new_id = clothes_manager.add_clothing_item(name, height_range, gender, style, image_url=image_url)
+        
+        # If local and we want strict {id}.jpg, we would need to rename.
+        # But our new system stores `image_url`, so we don't STRICTLY need {id}.jpg anymore.
+        # The frontend uses `image_url` property.
+        
         return {
             "id": new_id,
             "name": name,
             "style": style,
-            "filename": filename
+            "image_url": image_url
         }
         
-    except Exception as e:
-        print(f"Error processing upload: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
     except Exception as e:
         print(f"Error processing upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -236,8 +275,94 @@ async def try_on(
         
         return Response(content=result_image, media_type="image/jpeg")
 
+        return Response(content=result_image, media_type="image/jpeg")
+
     except Exception as e:
         print(f"Try-on error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/clothes/{cloth_id}")
+async def delete_clothing(cloth_id: str):
+    """
+    Delete a clothing item and its image.
+    """
+    try:
+        # Get item first to find image path/url
+        item = clothes_manager.get_cloth_by_id(cloth_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+            
+        # Delete from DB
+        success = clothes_manager.delete_clothing_item(cloth_id)
+        if not success:
+             raise HTTPException(status_code=500, detail="Failed to delete from DB")
+
+        # Delete Image
+        image_url = item.get('image_url', '')
+        
+        # 1. Cloudinary Delete
+        if "cloudinary" in image_url and os.getenv("CLOUDINARY_URL"):
+            try:
+                import cloudinary.uploader
+                # Extract public_id
+                # URL: https://res.cloudinary.com/cloudname/image/upload/v12345/folder/id.jpg
+                # We need header/id (without extension usually)
+                parts = image_url.split('/')
+                filename = parts[-1]
+                public_id_name = filename.split('.')[0]
+                
+                # Check for folder (assuming 1 level folder "clothing_app")
+                # If we used folder="clothing_app" in upload
+                folder = "clothing_app"
+                public_id = f"{folder}/{public_id_name}"
+                
+                print(f"Deleting from Cloudinary: {public_id}")
+                cloudinary.uploader.destroy(public_id)
+            except Exception as e:
+                print(f"Cloudinary delete failed: {e}")
+        
+        # 2. Local File Delete
+        # Even if using Cloudinary, we might have local temp files or old files
+        local_filename = f"{cloth_id}.jpg" # Simplified assumption
+        local_path = os.path.join(MODEL_DIR, local_filename)
+        if os.path.exists(local_path):
+             try:
+                 os.remove(local_path)
+             except Exception as e:
+                 print(f"Local file delete failed: {e}")
+
+        return {"status": "deleted", "id": cloth_id}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Delete error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateClothRequest(BaseModel):
+    name: Optional[str] = None
+    style: Optional[str] = None
+    gender: Optional[str] = None
+    height_range: Optional[str] = None
+
+@app.put("/api/clothes/{cloth_id}")
+async def update_clothing(cloth_id: str, updates: UpdateClothRequest):
+    """
+    Update clothing metadata.
+    """
+    try:
+        # Filter None values
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        
+        if not update_data:
+             return {"status": "no_changes"}
+
+        success = clothes_manager.update_clothing_item(cloth_id, update_data)
+        if not success:
+            raise HTTPException(status_code=404, detail="Item not found or update failed")
+            
+        return {"status": "updated", "updates": update_data}
+    except Exception as e:
+        print(f"Update error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
-<script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 const file = ref<File | null>(null)
@@ -7,6 +6,63 @@ const heightRange = ref('')
 const gender = ref('中性')
 const uploadStatus = ref('')
 const result = ref<any>(null)
+
+// Manage List Logic
+const clothesList = ref<any[]>([])
+const loadingList = ref(false)
+const editingItem = ref<any>(null)
+
+const fetchClothes = async () => {
+  loadingList.value = true
+  try {
+    // Assuming GET /api/clothes endpoint exists (same as UserPanel uses)
+    const res = await axios.get('/api/clothes')
+    clothesList.value = res.data
+  } catch (e) {
+    console.error("Failed to fetch clothes", e)
+  } finally {
+    loadingList.value = false
+  }
+}
+
+onMounted(() => {
+  fetchClothes()
+})
+
+const deleteItem = async (id: string) => {
+  if(!confirm("Are you sure you want to delete this item? This cannot be undone.")) return
+  
+  try {
+    await axios.delete(`/api/clothes/${id}`)
+    // Remove from local list to avoid refresh flicker
+    clothesList.value = clothesList.value.filter(item => item.id !== id)
+  } catch (e) {
+    alert("Delete failed.")
+    console.error(e)
+  }
+}
+
+const openEdit = (item: any) => {
+  // Clone object to avoid direct mutation before save
+  editingItem.value = { ...item }
+}
+
+const saveEdit = async () => {
+  if(!editingItem.value) return
+  
+  try {
+    await axios.put(`/api/clothes/${editingItem.value.id}`, editingItem.value)
+    // Update local list
+    const index = clothesList.value.findIndex(c => c.id === editingItem.value.id)
+    if(index !== -1) {
+      clothesList.value[index] = { ...editingItem.value }
+    }
+    editingItem.value = null
+  } catch (e) {
+    alert("Update failed.")
+    console.error(e)
+  }
+}
 
 const onFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement
@@ -33,6 +89,8 @@ const upload = async () => {
     })
     result.value = res.data
     uploadStatus.value = 'Upload Successful!'
+    // Refresh list after upload
+    fetchClothes()
   } catch (err) {
     console.error(err)
     uploadStatus.value = 'Error uploading.'
@@ -41,12 +99,13 @@ const upload = async () => {
 </script>
 
 <template>
-  <div class="glass-panel p-8 rounded-2xl max-w-2xl mx-auto">
+  <div class="glass-panel p-8 rounded-2xl max-w-4xl mx-auto">
     <h2 class="text-3xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
       Upload New Clothing
     </h2>
     
-    <div class="space-y-6">
+    <div class="space-y-6 mb-12">
+      <!-- Upload Section (Existing) -->
       <div class="group">
         <label class="block text-sm font-medium text-slate-400 mb-2">Upload Image</label>
         <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center">
@@ -109,6 +168,67 @@ const upload = async () => {
         </div>
       </transition>
     </div>
+
+    <!-- Edit/Delete Section -->
+    <div class="border-t border-white/10 pt-10">
+      <h2 class="text-2xl font-bold mb-6 text-white">Manage Clothes</h2>
+      <div v-if="loadingList" class="text-center text-slate-400">Loading list...</div>
+      
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-for="item in clothesList" :key="item.id" class="relative group bg-slate-800/40 rounded-xl overflow-hidden border border-white/5 hover:border-purple-500/30 transition-all">
+          <div class="aspect-[3/4] relative overflow-hidden bg-slate-900">
+             <img :src="item.image_url" class="w-full h-full object-cover transition duration-500 group-hover:scale-110" loading="lazy">
+             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-4 gap-2">
+                <button @click="openEdit(item)" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg text-sm">Edit</button>
+                <button @click="deleteItem(item.id)" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg text-sm">Delete</button>
+             </div>
+          </div>
+          <div class="p-4">
+            <h3 class="font-bold text-white truncate">{{ item.name }}</h3>
+            <p class="text-sm text-slate-400">{{ item.style }}</p>
+             <p class="text-xs text-slate-500 mt-1">{{ item.gender }} · {{ item.height_range }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div v-if="editingItem" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-4">Edit Clothing</h3>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Name</label>
+            <input v-model="editingItem.name" type="text" class="input-tech w-full px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Style</label>
+            <input v-model="editingItem.style" type="text" class="input-tech w-full px-3 py-2 text-sm">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">Height Range</label>
+              <input v-model="editingItem.height_range" type="text" class="input-tech w-full px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">Gender</label>
+              <select v-model="editingItem.gender" class="input-tech w-full px-3 py-2 text-sm appearance-none">
+                 <option class="bg-slate-800">中性</option>
+                 <option class="bg-slate-800">女性</option>
+                 <option class="bg-slate-800">男性</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-8">
+          <button @click="editingItem = null" class="px-4 py-2 text-slate-400 hover:text-white transition">Cancel</button>
+          <button @click="saveEdit" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 

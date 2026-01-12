@@ -80,5 +80,14 @@
         "style": "學院風格",
         "category": "Lower-body",
         "height_ratio": 0.33
+    },
+    {
+        "id": "011",
+        "name": "AI辨識之衣服(Mock)",
+        "height_range": "160-170",
+        "gender": "女性",
+        "style": "時尚休閒(Mock)",
+        "category": "Upper-body",
+        "image_url": "/images/temp_1768178261.jpg"
     }
 ]
