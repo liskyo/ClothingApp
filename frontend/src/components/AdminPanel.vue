@@ -13,12 +13,21 @@ const clothesList = ref<any[]>([])
 const loadingList = ref(false)
 const editingItem = ref<any>(null)
 const previewUrl = ref('')
+const dbStatus = ref('')
 
 const fetchClothes = async () => {
   loadingList.value = true
   try {
     const res = await axios.get('/api/clothes')
     clothesList.value = res.data
+    
+    // Check Health for DB Status
+    try {
+        const health = await axios.get('/api/health')
+        const mode = health.data.storage?.mode || 'Unknown'
+        dbStatus.value = mode
+    } catch(e) {}
+    
   } catch (e) {
     console.error("Failed to fetch clothes", e)
   } finally {
@@ -98,9 +107,16 @@ const upload = async () => {
 
 <template>
   <div class="glass-panel p-8 rounded-2xl max-w-4xl mx-auto">
-    <h2 class="text-3xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-      Upload New Clothing
-    </h2>
+    <div class="flex justify-between items-start mb-8">
+      <div>
+        <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+          Upload New Clothing
+        </h2>
+        <p v-if="dbStatus" class="text-xs mt-2 font-mono" :class="dbStatus.includes('MongoDB') ? 'text-emerald-400' : 'text-orange-400'">
+           Storage: {{ dbStatus }}
+        </p>
+      </div>
+    </div>
     
     <div class="space-y-6 mb-12">
       <!-- Upload Section -->

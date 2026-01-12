@@ -48,6 +48,13 @@ class ClothesManager:
             print(f"Could not create data file (Read-Only Filesystem?): {e}")
             print("Running in volatile mode (In-Memory only if no DB).")
 
+    def get_status(self) -> Dict:
+        return {
+            "mode": "MongoDB" if self.use_mongo else "Local JSON (Volatile on Vercel)",
+            "mongo_connected": self.use_mongo,
+            "item_count": self.collection.count_documents({}) if self.use_mongo and self.collection is not None else len(self.get_all_clothes())
+        }
+
     def get_all_clothes(self) -> List[Dict]:
         if self.use_mongo:
             try:

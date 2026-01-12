@@ -60,7 +60,17 @@ async def debug_info():
 async def health_check():
     manager_status = "active" if clothes_manager else "failed"
     ai_status = "active" if ai_service else "failed"
-    return {"status": "ok", "backend": "active", "managers": {"clothes": manager_status, "ai": ai_status}}
+    
+    storage_info = {"mode": "unknown"}
+    if clothes_manager:
+        storage_info = clothes_manager.get_status()
+        
+    return {
+        "status": "ok", 
+        "backend": "active", 
+        "managers": {"clothes": manager_status, "ai": ai_status},
+        "storage": storage_info
+    }
 
 # Ensure model directory exists - SKIP for Vercel (Read Only)
 # os.makedirs(MODEL_DIR, exist_ok=True)
