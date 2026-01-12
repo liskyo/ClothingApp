@@ -106,11 +106,11 @@ const upload = async () => {
       <!-- Upload Section -->
       <div class="group">
         <label class="block text-sm font-medium text-slate-400 mb-2">Upload Image</label>
-        <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center overflow-hidden">
+        <div class="relative h-96 border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center overflow-hidden flex flex-col justify-center items-center">
           <input type="file" @change="onFileChange" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
           
           <div v-if="previewUrl" class="absolute inset-0 w-full h-full bg-slate-900 z-0">
-             <img :src="previewUrl" class="w-full h-full object-contain" />
+             <img :src="previewUrl" class="w-full h-full object-contain p-4" />
           </div>
 
           <div v-else class="space-y-2 relative z-0">
