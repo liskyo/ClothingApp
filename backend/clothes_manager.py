@@ -49,10 +49,26 @@ class ClothesManager:
             print("Running in volatile mode (In-Memory only if no DB).")
 
     def get_status(self) -> Dict:
+        count = -1
+        try:
+            if self.use_mongo and self.collection is not None:
+                count = self.collection.count_documents({})
+            else:
+                 # Fallback to local list length if not using mongo or collection is None
+                 # But get_all_clothes itself might attempt mongo read
+                 # So we need to be careful.
+                 # Let's just try get_all_clothes which has fallback?
+                 # Actually get_all_clothes() has logic inside.
+                 # Let's just catch specific error.
+                 count = len(self.get_all_clothes())
+        except Exception as e:
+            print(f"Error getting item count: {e}")
+            count = -1
+            
         return {
             "mode": "MongoDB" if self.use_mongo else "Local JSON (Volatile on Vercel)",
             "mongo_connected": self.use_mongo,
-            "item_count": self.collection.count_documents({}) if self.use_mongo and self.collection is not None else len(self.get_all_clothes())
+            "item_count": count
         }
 
     def get_all_clothes(self) -> List[Dict]:

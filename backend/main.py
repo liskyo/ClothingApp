@@ -61,9 +61,12 @@ async def health_check():
     manager_status = "active" if clothes_manager else "failed"
     ai_status = "active" if ai_service else "failed"
     
-    storage_info = {"mode": "unknown"}
+    storage_info = {"mode": "unknown", "error": None}
     if clothes_manager:
-        storage_info = clothes_manager.get_status()
+        try:
+            storage_info = clothes_manager.get_status()
+        except Exception as e:
+            storage_info["error"] = str(e)
         
     return {
         "status": "ok", 
