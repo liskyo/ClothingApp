@@ -20,7 +20,7 @@
 > 3.  **樣式**：使用 **Tailwind CSS**，請幫我配置好深色模式 (Dark Mode) 的基礎設定。
 > 4.  **專案結構**：請採用 Monorepo 風格，根目錄下分別有 `backend/` 和 `frontend/` 資料夾，以及一個 `api/` 資料夾用於 Vercel Serverless Function 配置。
 >
-> 請告訴我如何使用終端機指令初始化這個專案結構，並提供根目錄的 `requirements.txt` (後端依賴) 與 `frontend/package.json` 的建議內容。後端需要安裝 `fastapi`, `uvicorn`, `python-multipart`, `google-generativeai`, `gradio_client`。
+> 請告訴我如何使用終端機指令初始化這個專案結構，並提供根目錄的 `requirements.txt` (後端依賴) 與 `frontend/package.json` 的建議內容。後端需要安裝 `fastapi`, `uvicorn`, `python-multipart`, `google-generativeai`, `gradio_client`, `pymongo`, `cloudinary`。
 
 ---
 
@@ -28,17 +28,21 @@
 
 **目標**：實作核心 API、AI 服務整合。
 
-> **Prompt 2 (資料管理模組):**
+> **Prompt 2 (資料管理模組 - Hybrid Mode):**
 >
 > 請在 `backend/` 下建立一個 `clothes_manager.py`。
 > 需求：
-> 1.  使用一個本地的 JSON 檔案 (`model/clothes.json`) 來當作簡易資料庫。
-> 2.  實作 `ClothesManager` 類別。
-> 3.  功能包含：
->     - `get_all_clothes()`: 讀取所有衣服。
->     - `add_clothing_item(name, height_range, gender, style)`: 新增衣服並自動產生 ID (如 001, 002)。
->     - `get_cloth_by_id(id)`: 透過 ID 取得衣服資訊。
-> 4.  請注意處理檔案不存在時的初始化邏輯。
+> 1.  實作 `ClothesManager` 類別，支援 **Hybrid Storage (混合儲存)**。
+> 2.  **建構子邏輯**：
+>     - 檢查環境變數 `MONGODB_URI`。
+>     - 若存在，連線至 MongoDB Atlas (Database: `clothing_app`, Collection: `clothes`)。
+>     - 若不存在，自動降級使用本地 `model/clothes.json` 檔案。
+> 3.  實作 CRUD 方法 (需同時支援 Mongo 與 JSON 兩種模式)：
+>     - `get_all_clothes()`: 讀取列表。
+>     - `add_clothing_item(...)`: 新增資料。
+>     - `delete_clothing_item(id)`: 刪除資料。
+>     - `update_clothing_item(id, updates)`: 更新資料。
+> 4.  請確保在 Vercel (Read-only FS) 環境下，若無 DB 連線至少能讀取本地 JSON。
 
 > **Prompt 3 (AI 服務 - Gemini 整合):**
 >
@@ -70,12 +74,18 @@
 > 請實作 `backend/main.py`，整合 FastAPI。
 >
 > **API Endpoints:**
-> 1.  `GET /api/clothes`: 回傳衣服列表，支援 `gender` URL 參數篩選。
-> 2.  `POST /api/upload`: 接收圖片與表單資料 -> 呼叫 AI 分析風格 -> 儲存圖片到 `model/` 資料夾 -> 寫入 `clothes.json`。
-> 3.  `POST /api/validate-avatar`: 接收使用者照片 -> 呼叫 AI 驗證 -> 回傳結果。
-> 4.  `POST /api/try-on`: 接收使用者照片與衣服 ID -> 呼叫 AI 試穿 -> 回傳生成的圖片 (image/jpeg)。
+> 1.  `GET /api/clothes`: 回傳衣服列表。
+> 2.  `POST /api/upload`:
+>     - 接收圖片與表單資料。
+>     - 呼叫 AI 分析風格。
+>     - **圖片儲存**：檢查 `CLOUDINARY_URL`，若有則上傳至 Cloudinary，否則存入 `model/`。
+>     - 寫入資料庫 (呼叫 `ClothesManager`)。
+> 3.  `POST /api/validate-avatar`: 照片驗證。
+> 4.  `POST /api/try-on`: 虛擬試穿。
+> 5.  `DELETE /api/clothes/{id}`: 刪除衣服。需同時刪除資料庫紀錄與 Cloudinary/Local 上的圖片檔案。
+> 6.  `PUT /api/clothes/{id}`: 編輯衣服資訊。
 >
-> 請設定好 CORS 與 Static Files mount (掛載 `model/` 目錄以存取圖片)。
+> 請設定好 CORS 與 Static Files mount (掛載 `model/` 目錄以存取圖片，作為本地降級使用)。
 
 ---
 
@@ -96,12 +106,17 @@
 >
 > 請建立元件 `src/components/AdminPanel.vue`。
 >
-> **功能：**
-> 1.  一個上傳區塊，包含「選擇圖片」、「身高範圍輸入框」、「性別下拉選單」。
-> 2.  按下上傳後，打 API 到 `/api/upload`。
-> 3.  上傳成功後，顯示回傳的 AI 分析結果 (衣服名稱、風格)。
+> **功能 1：上傳區塊**
+> 1.  包含「選擇圖片」、「身高範圍」、「性別」。
+> 2.  上傳後打 `/api/upload` 並顯示 AI 分析結果。
 >
-> **樣式：** 使用 Tailwind CSS 的卡片樣式，搭配紫色系的按鈕。
+> **功能 2：管理列表 (Manage Clothes)**
+> 1.  在下方顯示所有衣服的卡片列表 (Grid View)。
+> 2.  每張卡片上有 **Edit** 與 **Delete** 按鈕。
+> 3.  **Delete**: 點擊後跳出確認視窗，確認後呼叫 `/api/clothes/{id}` 刪除 API，並從畫面移除。
+> 4.  **Edit**: 點擊後彈出 Modal，可修改名稱、風格、身高、性別，送出後呼叫 PUT API。
+>
+> **樣式：** 使用 Tailwind CSS Card 樣式，Delete 按鈕用紅色，Edit 用藍色。
 
 > **Prompt 8 (使用者試穿介面):**
 >
@@ -130,7 +145,7 @@
 > 1.  `vercel.json`：設定 Rewrites，將 `/api/*` 的請求導向 `api/index.py`，其餘請求導向前端靜態頁面。
 > 2.  `api/index.py`：這是一個 Serverless Function 的進入點，請 import 我們在 `backend/main.py` 寫好的 FastAPI `app` 實例。
 >
-> 請提醒我部署時需要在 Vercel 設定哪些環境變數 (如 `GEMINI_API_KEY`, `REPLICATE_API_TOKEN` 等)。
+> 請提醒我部署時需要在 Vercel 設定哪些環境變數 (如 `GEMINI_API_KEY`, `MONGODB_URI`, `CLOUDINARY_URL`, `REPLICATE_API_TOKEN` 等)。
 
 ---
 
