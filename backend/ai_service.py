@@ -10,7 +10,7 @@ class AIService:
         # Gemini Setup
         # Allow multiple keys separated by comma
         self.gemini_keys = []
-        keys_str = os.getenv("GEMINI_API_KEY", "")
+        keys_str = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
         if keys_str:
             self.gemini_keys = [k.strip() for k in keys_str.split(',') if k.strip()]
         
