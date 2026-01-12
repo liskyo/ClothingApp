@@ -619,10 +619,36 @@ class AIService:
         
         final_result_bytes = None
         
-        # 1. Replicate (Paid)
+        # 1. Replicate (Paid, Best)
         if self.replicate_token and method != 'overlay':
-             # Just a placeholder for Replicate logic presence
-             pass 
+             try:
+                 print(f"Attempting Replicate (IDM-VTON) for {cloth_name}...")
+                 model_id = "cuuupid/idm-vton:c871bb9b046607b680569f0c558aa565256e6d18725893d508499306b3a32f7a" # Reliable Version
+                 
+                 output = self._get_replicate_module().run(
+                     model_id,
+                     input={
+                         "human_img": io.BytesIO(person_img_bytes),
+                         "garm_img": open(cloth_img_path, "rb"),
+                         "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
+                         "crop": False, # We handle cropping/padding ourselves? Or let it handle? 
+                         # IDM-VTON usually handles auto-crop well.
+                         "seed": 42,
+                         "steps": 30
+                     }
+                 )
+                 print(f"Replicate Result: {output}")
+                 if output:
+                     # Replicate returns a URL
+                     import requests
+                     res = requests.get(output)
+                     if res.status_code == 200:
+                         final_result_bytes = res.content
+                         
+             except Exception as e:
+                 print(f"Replicate Error: {e}")
+                 # Fallthrough to Gradio
+                 pass 
              
         # 2. Gradio (Free GenAI)
         if method != 'overlay' and not final_result_bytes:
