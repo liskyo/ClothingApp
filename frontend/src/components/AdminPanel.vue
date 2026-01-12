@@ -1,3 +1,4 @@
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
@@ -11,11 +12,11 @@ const result = ref<any>(null)
 const clothesList = ref<any[]>([])
 const loadingList = ref(false)
 const editingItem = ref<any>(null)
+const previewUrl = ref('')
 
 const fetchClothes = async () => {
   loadingList.value = true
   try {
-    // Assuming GET /api/clothes endpoint exists (same as UserPanel uses)
     const res = await axios.get('/api/clothes')
     clothesList.value = res.data
   } catch (e) {
@@ -34,7 +35,6 @@ const deleteItem = async (id: string) => {
   
   try {
     await axios.delete(`/api/clothes/${id}`)
-    // Remove from local list to avoid refresh flicker
     clothesList.value = clothesList.value.filter(item => item.id !== id)
   } catch (e) {
     alert("Delete failed.")
@@ -43,7 +43,6 @@ const deleteItem = async (id: string) => {
 }
 
 const openEdit = (item: any) => {
-  // Clone object to avoid direct mutation before save
   editingItem.value = { ...item }
 }
 
@@ -52,7 +51,6 @@ const saveEdit = async () => {
   
   try {
     await axios.put(`/api/clothes/${editingItem.value.id}`, editingItem.value)
-    // Update local list
     const index = clothesList.value.findIndex(c => c.id === editingItem.value.id)
     if(index !== -1) {
       clothesList.value[index] = { ...editingItem.value }
@@ -63,8 +61,6 @@ const saveEdit = async () => {
     console.error(e)
   }
 }
-
-const previewUrl = ref('')
 
 const onFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement
@@ -92,7 +88,6 @@ const upload = async () => {
     })
     result.value = res.data
     uploadStatus.value = 'Upload Successful!'
-    // Refresh list after upload
     fetchClothes()
   } catch (err) {
     console.error(err)
@@ -108,10 +103,10 @@ const upload = async () => {
     </h2>
     
     <div class="space-y-6 mb-12">
-      <!-- Upload Section (Existing) -->
+      <!-- Upload Section -->
       <div class="group">
         <label class="block text-sm font-medium text-slate-400 mb-2">Upload Image</label>
-        <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center relative overflow-hidden">
+        <div class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors group-hover:border-purple-500/50 bg-slate-800/20 text-center overflow-hidden">
           <input type="file" @change="onFileChange" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
           
           <div v-if="previewUrl" class="absolute inset-0 w-full h-full bg-slate-900 z-0">
