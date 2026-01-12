@@ -257,7 +257,7 @@ onMounted(() => {
                 <!-- State 1: Loading -->
                 <div v-if="loading" class="absolute inset-0 z-10 bg-slate-900/80 backdrop-blur flex flex-col items-center justify-center">
                      <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                     <span class="text-indigo-400 font-bold animate-pulse">Designing New Look...</span>
+                     <span class="text-indigo-400 font-bold animate-pulse">Loading... 目前排隊人數較多</span>
                 </div>
 
                 <!-- State 2: Result exists -->

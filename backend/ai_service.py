@@ -541,7 +541,7 @@ class AIService:
             # Strict Failure: Do not allow bypass on error
             return {"valid": False, "reason": f"AI 驗證連線失敗: {str(e)}", "processed_image": None}
 
-    def _add_watermark(self, img_bytes: bytes, text: str = "僅供穿搭參考，並非真實穿著效果") -> bytes:
+    def _add_watermark(self, img_bytes: bytes, text: str = "此為試穿效果，並非真實穿著樣貌") -> bytes:
         """
         Add a disclaimer watermark to the bottom of the image.
         """
