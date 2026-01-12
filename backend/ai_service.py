@@ -649,8 +649,8 @@ class AIService:
                          
              except Exception as e:
                  print(f"Replicate Error: {e}")
-                 # Fallthrough to Gradio
-                 pass 
+                 # Force error propagation to UI so user knows if it's billing/quota
+                 raise Exception(f"Replicate Error: {str(e)}") 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
              

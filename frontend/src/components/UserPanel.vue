@@ -181,9 +181,10 @@ const tryOn = async (cloth: Cloth) => {
     })
     
     tryOnResult.value = URL.createObjectURL(res.data)
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
-    alert('試穿失敗')
+    const msg = err.response?.data?.detail || err.message || '試穿失敗'
+    alert(`試穿失敗: ${msg}`)
   } finally {
     loading.value = false
   }
