@@ -232,7 +232,11 @@ class AIService:
         Try using free OOTDiffusion via Gradio Client.
         """
         try:
-            from gradio_client import Client, handle_file
+            try:
+                from gradio_client import Client, handle_file
+            except ImportError as ie:
+                print(f"CRITICAL: gradio_client import failed. {ie}")
+                raise Exception("Server Error: Missing gradio_client library.")
             
             # PRE-PROCESS: Ensure 3:4 Aspect Ratio to prevent distortion (Skipped if we trust input)
             # Default input logic handles person image.
