@@ -183,8 +183,16 @@ const tryOn = async (cloth: Cloth) => {
     tryOnResult.value = URL.createObjectURL(res.data)
   } catch (err: any) {
     console.error(err)
-    const msg = err.response?.data?.detail || err.message || '試穿失敗'
-    alert(`試穿失敗: ${msg}`)
+    
+    // Extract detailed error from backend
+    let errorMsg = "試穿失敗，請稍後再試。";
+    if (err.response && err.response.data && err.response.data.detail) {
+         errorMsg += `\n(錯誤代碼: ${err.response.status})\n內容: ${err.response.data.detail}`;
+    } else if (err.message) {
+         errorMsg += `\n(${err.message})`;
+    }
+    
+    alert(errorMsg);
   } finally {
     loading.value = false
   }
