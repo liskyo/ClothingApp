@@ -492,8 +492,10 @@ class AIService:
                 raise e # Re-raise to ensure main handler catches it
 
         except Exception as e:
-            print(f"Gradio VTON Setup Failed: {e}")
-            raise e
+            print(f"Gradio VTON Setup/Run Failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise Exception(f"VTON Error: {str(e)[:100]}")
 
     def validate_and_crop_user_photo(self, img_bytes: bytes) -> Dict:
         """

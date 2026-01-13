@@ -7,8 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from typing import Optional, List
 import shutil
+import shutil
 import os
-# import uuid # Removed uuid
+
+# Serverless/Vercel Fix: Force cache directories to /tmp
+os.environ['HF_HOME'] = '/tmp/hf'
+os.environ['GRADIO_TEMP_DIR'] = '/tmp/gradio'
+os.environ['XDG_CACHE_HOME'] = '/tmp/cache'
+
+# script continues...
 
 from backend.clothes_manager import ClothesManager
 from backend.ai_service import AIService
