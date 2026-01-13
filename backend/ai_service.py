@@ -15,10 +15,13 @@ class AIService:
             self.gemini_keys = [k.strip() for k in keys_str.split(',') if k.strip()]
         
         self.gemini_models = [
-            'gemini-2.0-flash-exp',
-            'gemini-flash-latest',
             'gemini-1.5-flash',
-            'gemini-1.5-pro'
+            'gemini-1.5-flash-001',
+            'gemini-1.5-flash-002',
+            'gemini-1.5-pro',
+            'gemini-1.5-pro-001',
+            'gemini-1.5-pro-002',
+            'gemini-pro' # Fallback
         ]
         
         # Replicate Setup
@@ -103,9 +106,9 @@ class AIService:
             
             for model_name in self.gemini_models:
                 try:
-                    # model = genai.GenerativeModel(model_name)
-                    # Use flash for speed
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # FIX: Use loop variable model_name instead of hardcoded value
+                    print(f"Trying Gemini Model: {model_name}...")
+                    model = genai.GenerativeModel(model_name)
                     
                     response = model.generate_content([prompt, image_part])
                     text = response.text.replace("```json", "").replace("```", "").strip()
