@@ -302,29 +302,67 @@ async def try_on(
     Virtual Try-On Endpoint.
     """
     try:
-        # Verify clothes exist
-        json_path = os.path.join(MODEL_DIR, f"{clothes_id}.jpg")
-        if not os.path.exists(json_path):
-             raise HTTPException(status_code=404, detail="Clothes not found")
+        # Get clothes info first
+        cloth_info = clothes_manager.get_cloth_by_id(clothes_id)
+        if not cloth_info:
+             raise HTTPException(status_code=404, detail="Clothes not found in DB")
+
+        # Determine Cloth Image Path
+        # Priority: 1. Existing Local File  2. Download from Image URL
+        local_path = os.path.join(MODEL_DIR, f"{clothes_id}.jpg")
+        temp_cloth_path = None
+        final_cloth_path = None
+
+        if os.path.exists(local_path):
+            final_cloth_path = local_path
+        elif cloth_info.get('image_url', '').startswith('http'):
+            # Download from Cloudinary/URL
+            try:
+                import requests
+                import tempfile
+                print(f"Downloading cloth image from {cloth_info['image_url']}...")
+                response = requests.get(cloth_info['image_url'])
+                if response.status_code == 200:
+                    # Create temp file
+                    fd, temp_cloth_path = tempfile.mkstemp(suffix=".jpg")
+                    os.close(fd)
+                    with open(temp_cloth_path, "wb") as f:
+                        f.write(response.content)
+                    final_cloth_path = temp_cloth_path
+                    print(f"Downloaded to temp: {final_cloth_path}")
+                else:
+                    print(f"Failed to download image: {response.status_code}")
+            except Exception as e:
+                 print(f"Download error: {e}")
+        
+        if not final_cloth_path or not os.path.exists(final_cloth_path):
+             raise HTTPException(status_code=404, detail="Clothing image file not found locally or remotely.")
 
         user_image = await file.read()
         
-        # Get clothes info
-        cloth_info = clothes_manager.get_cloth_by_id(clothes_id)
-        cloth_name = cloth_info['name'] if cloth_info else "Upper-body"
-        category = cloth_info.get('category', 'Upper-body') if cloth_info else "Upper-body"
-        try_on_method = cloth_info.get('try_on_method', 'auto') if cloth_info else 'auto'
-        height_ratio = cloth_info.get('height_ratio', None) if cloth_info else None
+        cloth_name = cloth_info.get('name', 'Upper-body')
+        category = cloth_info.get('category', 'Upper-body')
+        try_on_method = cloth_info.get('try_on_method', 'auto')
+        height_ratio = cloth_info.get('height_ratio', None)
         
         # Call AI VTON Service
-        result_image = ai_service.virtual_try_on(
-            user_image, 
-            json_path, 
-            cloth_name=cloth_name, 
-            category=category,
-            method=try_on_method,
-            height_ratio=height_ratio
-        )
+        try:
+            result_image = ai_service.virtual_try_on(
+                user_image, 
+                final_cloth_path, 
+                cloth_name=cloth_name, 
+                category=category,
+                method=try_on_method,
+                height_ratio=height_ratio
+            )
+        finally:
+            # Cleanup temp file
+            if temp_cloth_path and os.path.exists(temp_cloth_path):
+                try:
+                    os.remove(temp_cloth_path)
+                    print(f"Cleaned up temp cloth: {temp_cloth_path}")
+                except:
+                    pass
         
         return Response(content=result_image, media_type="image/jpeg")
 
