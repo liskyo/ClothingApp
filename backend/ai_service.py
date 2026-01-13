@@ -116,12 +116,15 @@ class AIService:
                     error_msg = str(e)
                     errors.append(f"Key(...{key[-4:]})/{model_name}: {error_msg}")
                     # Basic rotation logic same as before...
-                    if "429" in error_msg or "Quota" in error_msg:
-                        break
                     if "404" in error_msg:
                         continue
         
-        return self._mock_analysis()
+        # If all failed, use the last error as reason
+        last_error = errors[-1] if errors else "Unknown Error"
+        print(f"All Gemini attempts failed. Errors: {errors}")
+        # Return a shortened error for UI
+        short_error = last_error.split(':')[-1].strip()[:20] 
+        return self._mock_analysis(f"Err: {short_error}")
 
     def _remove_background_simple(self, img):
         """
