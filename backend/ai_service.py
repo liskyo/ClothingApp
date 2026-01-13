@@ -10,9 +10,14 @@ class AIService:
         # Gemini Setup
         # Allow multiple keys separated by comma
         self.gemini_keys = []
-        keys_str = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
-        if keys_str:
-            self.gemini_keys = [k.strip() for k in keys_str.split(',') if k.strip()]
+        
+        # Load from BOTH variables to ensure we catch whatever the user set
+        keys_1 = (os.getenv("GEMINI_API_KEY", "")).split(',')
+        keys_2 = (os.getenv("GOOGLE_API_KEY", "")).split(',')
+        
+        # Combine and deduplicate
+        all_keys = [k.strip() for k in keys_1 + keys_2 if k.strip()]
+        self.gemini_keys = list(set(all_keys))
         
         self.gemini_models = [
             'gemini-1.5-flash',
@@ -21,7 +26,7 @@ class AIService:
             'gemini-1.5-pro',
             'gemini-1.5-pro-001',
             'gemini-1.5-pro-002',
-            'gemini-pro' # Fallback
+            # 'gemini-pro' # Removed: Text-only model cannot analyze images
         ]
         
         # Replicate Setup
@@ -30,6 +35,9 @@ class AIService:
         # Debug Logging
         if self.gemini_keys:
             print(f"✅ Gemini Service Initialized with {len(self.gemini_keys)} keys.")
+            # Print hint of keys for server logs
+            for i, k in enumerate(self.gemini_keys):
+                print(f"  Key {i+1}: ...{k[-4:]}")
         else:
             print("⚠️ Gemini Service: No API Keys found (Env: GEMINI_API_KEY or GOOGLE_API_KEY)")
             
@@ -117,7 +125,9 @@ class AIService:
 
                 except Exception as e:
                     error_msg = str(e)
-                    errors.append(f"Key(...{key[-4:]})/{model_name}: {error_msg}")
+                    # Include Key hint in error log
+                    key_hint = f"...{key[-4:]}"
+                    errors.append(f"Key({key_hint})/{model_name}: {error_msg}")
                     # Basic rotation logic same as before...
                     if "404" in error_msg:
                         continue
@@ -125,8 +135,23 @@ class AIService:
         # If all failed, use the last error as reason
         last_error = errors[-1] if errors else "Unknown Error"
         print(f"All Gemini attempts failed. Errors: {errors}")
-        # Return a shortened error for UI
-        short_error = last_error.split(':')[-1].strip()[:20] 
+        
+        # Return a shortened error for UI with KEY HINT
+        # Extract the key hint from our custom error string
+        # Format: Key(...1234)/gemini-1.5-flash: 404 ...
+        try:
+            parts = last_error.split(':')
+            # parts[0] is "Key(...1234)/model"
+            # parts[1] is start of error message
+            key_info = parts[0]
+            err_code = parts[1].strip()[:20] # e.g. "404 Not Found"
+            if "Key" in key_info:
+                short_error = f"{err_code} ({key_info})"
+            else:
+                short_error = err_code
+        except:
+             short_error = last_error[:30]
+
         return self._mock_analysis(f"Err: {short_error}")
 
     def _remove_background_simple(self, img):
