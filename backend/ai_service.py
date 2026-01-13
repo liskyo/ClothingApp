@@ -137,22 +137,21 @@ class AIService:
         print(f"All Gemini attempts failed. Errors: {errors}")
         
         # Return a shortened error for UI with KEY HINT
-        # Extract the key hint from our custom error string
-        # Format: Key(...1234)/gemini-1.5-flash: 404 ...
         try:
             parts = last_error.split(':')
-            # parts[0] is "Key(...1234)/model"
-            # parts[1] is start of error message
             key_info = parts[0]
-            err_code = parts[1].strip()[:20] # e.g. "404 Not Found"
+            err_code = parts[1].strip()[:20]
             if "Key" in key_info:
+                # Example: 404 Not Found (Key...1234)
                 short_error = f"{err_code} ({key_info})"
             else:
                 short_error = err_code
         except:
              short_error = last_error[:30]
 
-        return self._mock_analysis(f"Err: {short_error}")
+        # Show Key Count to verify loading
+        key_count = len(self.gemini_keys)
+        return self._mock_analysis(f"Err({key_count} keys): {short_error}")
 
     def _remove_background_simple(self, img):
         """
