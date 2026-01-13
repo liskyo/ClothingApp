@@ -417,16 +417,32 @@ class AIService:
                 
                 # Call Gradio Client
                 # Using 'levihsu/OOTDiffusion'
-                result = client.predict(
-                    vton_img=handle_file(padded_person_path), # Send PADDED image
-                    garm_img=handle_file(proc_cloth_path), 
-                    category=ootd_category, 
-                    n_samples=1,
-                    n_steps=40, # Increase steps for better blending
-                    image_scale=2.5, # Reduce to 2.5 (Standard-ish) to avoid harsh artifacting/flaps
-                    seed=-1,
-                    api_name="/process_dc"
-                )
+                print(f"Calling client.predict with standard params...")
+                try:
+                    # OOTDiffusion API often changes. Trying most standard one.
+                    result = client.predict(
+                        vton_img=handle_file(padded_person_path), 
+                        garm_img=handle_file(proc_cloth_path), 
+                        category=ootd_category, 
+                        n_samples=1,
+                        n_steps=20, # Reduced steps for speed (Timeout fix?)
+                        image_scale=2, 
+                        seed=-1,
+                        api_name="/process_dc"
+                    )
+                except Exception as api_err:
+                     print(f"First API attempt failed: {api_err}. Trying fallback API name...")
+                     # Fallback to /process_hd just in case
+                     result = client.predict(
+                        vton_img=handle_file(padded_person_path), 
+                        garm_img=handle_file(proc_cloth_path), 
+                        category=ootd_category, 
+                        n_samples=1,
+                        n_steps=20,
+                        image_scale=2, 
+                        seed=-1,
+                        api_name="/process_hd"
+                     )
             
                 # Handle Result (can be list or tuple)
                 out_path = None
