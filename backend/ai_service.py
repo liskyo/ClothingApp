@@ -20,13 +20,11 @@ class AIService:
         self.gemini_keys = list(set(all_keys))
         
         self.gemini_models = [
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002',
-            'gemini-1.5-pro',
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',
-            # 'gemini-pro' # Removed: Text-only model cannot analyze images
+            'gemini-3-flash',          # High performance (2026 verified)
+            'gemini-2.5-flash',        # (2026 verified)
+            'gemini-2.5-flash-lite',   # (2026 verified)
+            'gemini-1.5-flash',        # Legacy fallback
+            'gemini-1.5-pro',          # Legacy fallback
         ]
         
         # Replicate Setup
