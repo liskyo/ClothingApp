@@ -167,6 +167,49 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
         return []
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/debug-status")
+async def debug_status():
+    """
+    Diagnostic endpoint to check environment health.
+    """
+    import tempfile
+    import os
+    import sys
+    
+    status = {
+        "python_version": sys.version,
+        "temp_dir": tempfile.gettempdir(),
+        "hf_home": os.environ.get("HF_HOME"),
+        "gradio_temp": os.environ.get("GRADIO_TEMP_DIR"),
+        "write_test": "pending",
+        "gradio_import": "pending",
+        "cloudinary_import": "pending"
+    }
+    
+    # 1. Test Write
+    try:
+        with tempfile.NamedTemporaryFile(delete=True) as f:
+            f.write(b"test")
+        status["write_test"] = "ok"
+    except Exception as e:
+        status["write_test"] = f"fail: {str(e)}"
+        
+    # 2. Test Import
+    try:
+        import gradio_client
+        status["gradio_import"] = f"ok ({gradio_client.__version__})"
+    except Exception as e:
+        status["gradio_import"] = f"fail: {str(e)}"
+
+    # 3. Test Cloudinary
+    try:
+        import cloudinary
+        status["cloudinary_import"] = "ok"
+    except Exception as e:
+        status["cloudinary_import"] = f"fail: {str(e)}"
+        
+    return status
+
 @app.post("/api/upload")
 async def upload_clothing(
     file: UploadFile = File(...),

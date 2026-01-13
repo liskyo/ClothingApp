@@ -186,8 +186,18 @@ const tryOn = async (cloth: Cloth) => {
     
     // Extract detailed error from backend
     let errorMsg = "試穿失敗，請稍後再試。";
-    if (err.response && err.response.data && err.response.data.detail) {
-         errorMsg += `\n(錯誤代碼: ${err.response.status})\n內容: ${err.response.data.detail}`;
+    if (err.response) {
+         errorMsg += `\n(狀態碼: ${err.response.status})`;
+         
+         if (err.response.data) {
+             if (typeof err.response.data === 'object' && err.response.data.detail) {
+                 errorMsg += `\n內容: ${err.response.data.detail}`;
+             } else {
+                 // Likely HTML or raw string
+                 const rawData = String(err.response.data).substring(0, 200); // truncated
+                 errorMsg += `\n內容: ${rawData}...`;
+             }
+         }
     } else if (err.message) {
          errorMsg += `\n(${err.message})`;
     }
