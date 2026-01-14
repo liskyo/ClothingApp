@@ -678,17 +678,28 @@ class AIService:
                     cloth_bytes = f.read()
 
                 # Get latest version dynamically to avoid 422 Invalid Version errors
-                print("Getting latest version of cuuupid/idm-vton...")
-                rep = self._get_replicate_module()
-                model = rep.models.get("cuuupid/idm-vton")
+                print("🚀 Getting latest version of cuuupid/idm-vton...")
+                
+                # Use explicit Client to ensure Token is passed correctly
+                import replicate
+                client = replicate.Client(api_token=self.replicate_token)
+                
+                model = client.models.get("cuuupid/idm-vton")
                 version = model.latest_version
                 print(f"Using Version: {version.id}")
                 
-                output = rep.run(
+                # Prepare Inputs with explicit filenames (Fix for 'Concatenate NoneType' error)
+                human_file = io.BytesIO(person_img_bytes)
+                human_file.name = "human.jpg"
+                
+                cloth_file = io.BytesIO(cloth_bytes)
+                cloth_file.name = "cloth.jpg"
+
+                output = client.run(
                     f"cuuupid/idm-vton:{version.id}",
                     input={
-                        "human_img": io.BytesIO(person_img_bytes), # 記憶體中的圖片
-                        "garm_img": io.BytesIO(cloth_bytes),       # 記憶體中的圖片
+                        "human_img": human_file, 
+                        "garm_img": cloth_file,
                         "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
                         "crop": False, 
                         "steps": 30
@@ -707,10 +718,12 @@ class AIService:
                         
             except Exception as e:
                 print(f"Replicate Error: {e}")
-                # Debugging: Stop fallback to see why Replicate is failing
-                raise Exception(f"Replicate Error: {str(e)}")
-                # print("⚠️ Replicate failed (Billing/Network). Falling back to Free Model...")
-                # Do NOT raise here. Let it fall through to Gradio.
+                # Restore Fallback: allowing it to proceed to Gradio if Replicate fails
+                print("⚠️ Replicate failed. Falling back to Free Model...")
+                # raise Exception(f"Replicate Error: {str(e)}") # Commented out to allow fallback
+                
+        else:
+             print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}")
                 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
