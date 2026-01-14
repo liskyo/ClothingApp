@@ -710,12 +710,16 @@ class AIService:
                 if api_category not in ["upper_body", "lower_body", "dresses"]:
                     api_category = "upper_body"
 
+                # Prepare description hint
+                garm_desc = f"a {category.replace('-', ' ')} garment"
+                
                 output = client.run(
                     model_id,
                     input={
                         "human_img": human_file, 
                         "garm_img": cloth_file,
                         "category": api_category,
+                        "garment_des": garm_desc,
                         "crop": False, 
                         "steps": 20 # Reduced from 30 to speed up and avoid Vercel 60s timeout
                     }
@@ -733,6 +737,13 @@ class AIService:
                         
             except Exception as e:
                 print(f"Replicate Error Traceback: {traceback.format_exc()}")
+                
+                # CRITICAL: Fallback (Gradio OOTDiffusion) ONLY supports Upper-body.
+                # If we are trying Lower-body or Dress, we CANNOT use fallback.
+                if api_category != "upper_body":
+                    print(f"⚠️ Cannot handle {api_category} with fallback. Raising error.")
+                    raise Exception(f"Replicate Failed but Fallback only supports Upper-body. Error: {str(e)}")
+
                 # Debugging: Stop fallback to see WHY Replicate is failing
                 print("⚠️ Replicate failed. Attempting Fallback to Free Model...")
                 # raise Exception(f"Replicate Error: {str(e)}") # Force UI to show error
