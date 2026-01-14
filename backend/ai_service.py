@@ -678,16 +678,13 @@ class AIService:
                 with open(cloth_img_path, "rb") as f:
                     cloth_bytes = f.read()
 
-                # Get latest version dynamically to avoid 422 Invalid Version errors
-                print("🚀 Getting latest version of cuuupid/idm-vton...")
-                
-                # Use explicit Client to ensure Token is passed correctly
+                # Use Hardcoded Version Hash to avoid "NoneType" error during lookup
                 import replicate
                 client = replicate.Client(api_token=self.replicate_token)
                 
-                model = client.models.get("cuuupid/idm-vton")
-                version = model.latest_version
-                print(f"Using Version: {version.id}")
+                # This is the "cuuupid/idm-vton" model: c871bb9b046607e580c22118d08d6800dd7edc9b11e73719000c0293d5bd7308
+                model_id = "cuuupid/idm-vton:c871bb9b046607e580c22118d08d6800dd7edc9b11e73719000c0293d5bd7308"
+                print(f"Using Replicate Model: {model_id}")
                 
                 # Prepare Inputs with explicit filenames (Fix for 'Concatenate NoneType' error)
                 human_file = io.BytesIO(person_img_bytes)
@@ -700,7 +697,7 @@ class AIService:
                 print(f"Cloth File: Size={cloth_file.getbuffer().nbytes} Name={cloth_file.name}")
 
                 output = client.run(
-                    f"cuuupid/idm-vton:{version.id}",
+                    model_id,
                     input={
                         "human_img": human_file, 
                         "garm_img": cloth_file,
