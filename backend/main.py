@@ -508,6 +508,7 @@ class UpdateClothRequest(BaseModel):
     style: Optional[str] = None
     gender: Optional[str] = None
     height_range: Optional[str] = None
+    category: Optional[str] = None
 
 @app.put("/api/clothes/{cloth_id}")
 async def update_clothing(cloth_id: str, updates: UpdateClothRequest):

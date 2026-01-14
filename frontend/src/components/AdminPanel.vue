@@ -320,6 +320,15 @@ const upload = async () => {
                  <option class="bg-slate-800">男性</option>
               </select>
             </div>
+            
+            <div class="col-span-2">
+                <label class="block text-sm text-slate-400 mb-1">Clothing Type (Category)</label>
+                <select v-model="editingItem.category" class="input-tech w-full px-3 py-2 text-sm appearance-none">
+                  <option value="Upper-body" class="bg-slate-800">Upper Body</option>
+                  <option value="Lower-body" class="bg-slate-800">Lower Body</option>
+                  <option value="Dresses" class="bg-slate-800">Dress</option>
+                </select>
+            </div>
           </div>
         </div>
 
