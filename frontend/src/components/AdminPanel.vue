@@ -4,7 +4,6 @@ import axios from 'axios'
 
 const file = ref<File | null>(null)
 const heightRange = ref('')
-const heightRange = ref('')
 const gender = ref('中性')
 const category = ref('Upper-body') // Default category
 const uploadStatus = ref('')
@@ -151,7 +150,6 @@ const upload = async () => {
 
   const formData = new FormData()
   formData.append('file', file.value)
-  formData.append('height_range', heightRange.value)
   formData.append('height_range', heightRange.value)
   formData.append('gender', gender.value)
   formData.append('category', category.value)
