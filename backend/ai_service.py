@@ -705,9 +705,11 @@ class AIService:
                     "lower-body": "lower_body",
                     "dresses": "dresses",
                     # New Fine-grained Lower Body mappings
+                    "mini skirt": "lower_body",
                     "short skirt": "lower_body",
                     "midi skirt": "lower_body",
                     "long skirt": "lower_body",
+                    "hot pants": "lower_body",
                     "shorts": "lower_body",
                     "capri pants": "lower_body",
                     "ankle pants": "lower_body",
