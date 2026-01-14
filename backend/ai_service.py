@@ -702,7 +702,7 @@ class AIService:
                         "garm_img": cloth_file,
                         "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
                         "crop": False, 
-                        "steps": 30
+                        "steps": 20 # Reduced from 30 to speed up and avoid Vercel 60s timeout
                     }
                 )
                 print(f"Replicate Result URL: {output}")
