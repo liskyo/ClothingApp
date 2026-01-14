@@ -722,8 +722,19 @@ class AIService:
                 if api_category not in ["upper_body", "lower_body", "dresses"]:
                     api_category = "upper_body"
 
-                # Prepare description hint
-                garm_desc = f"a {category.replace('-', ' ')} garment"
+                # Prepare description hint with stronger keywords for short items
+                raw_cat = category.lower()
+                desc_map = {
+                    "mini skirt": "a very short micro-mini skirt, showing legs, thigh length",
+                    "hot pants": "very short hot pants, denim shorts, high cut, showing legs",
+                    "short skirt": "a short skirt, above knee length",
+                    "shorts": "short pants, above knee",
+                    "midi skirt": "a knee-length midi skirt",
+                    "long skirt": "a long maxi skirt, ankle length",
+                    "trousers": "long trousers, full length pants"
+                }
+                
+                garm_desc = desc_map.get(raw_cat, f"a {raw_cat.replace('-', ' ')} garment")
                 
                 output = client.run(
                     model_id,
