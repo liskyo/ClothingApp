@@ -11,3 +11,5 @@ gradio_client>=0.8.0
 pymongo>=4.0.0
 cloudinary>=1.30.0
 dnspython>=2.3.0
+rembg>=2.0.50
+onnxruntime>=1.16.0

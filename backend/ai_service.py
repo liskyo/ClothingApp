@@ -678,6 +678,16 @@ class AIService:
                 with open(cloth_img_path, "rb") as f:
                     cloth_bytes = f.read()
 
+                # Pre-process: Remove Background from Cloth Image
+                # This fixes issues where the AI treats background texture (e.g. wood, bed) as part of the clothes
+                try:
+                    from rembg import remove
+                    print("🧹 Removing background from garment image...")
+                    cloth_bytes = remove(cloth_bytes)
+                    print("✅ Background removed.")
+                except Exception as rembg_err:
+                    print(f"⚠️ Background removal failed (using original): {rembg_err}")
+
                 # Use Hardcoded Version Hash to avoid "NoneType" error during lookup
                 import replicate
                 client = replicate.Client(api_token=self.replicate_token)
