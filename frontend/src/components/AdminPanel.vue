@@ -74,8 +74,70 @@ const saveEdit = async () => {
 const onFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
-    file.value = target.files[0]
-    previewUrl.value = URL.createObjectURL(file.value)
+    const selectedFile = target.files[0]
+    
+    // 1. Check File Type (Must be PNG)
+    if (selectedFile.type !== 'image/png') {
+      alert("請上傳 PNG 格式的圖片 (必須包含透明背景)！")
+      target.value = '' // Clear input
+      file.value = null
+      previewUrl.value = ''
+      return
+    }
+
+    // 2. Check for Transparency (Canvas Analysis)
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(selectedFile)
+    img.src = objectUrl
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      canvas.width = img.width
+      canvas.height = img.height
+      
+      if (!ctx) {
+         // Fallback if canvas failed (rare)
+         file.value = selectedFile
+         previewUrl.value = objectUrl
+         return
+      }
+
+      ctx.drawImage(img, 0, 0)
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+        let hasTransparency = false
+        
+        // Sample pixels (checking every 10th pixel for speed)
+        for (let i = 3; i < data.length; i += 40) { 
+          if (data[i] < 250) { // Alpha channel < 250 (allowing slight anti-aliasing but looking for holes)
+             hasTransparency = true
+             break
+          }
+        }
+        
+        if (!hasTransparency) {
+           alert("錯誤：偵測不到透明背景！\n\n管理者上傳規定：\n1. 必須是去背過的 PNG 圖檔。\n2. 請使用 remove.bg 等工具去背後再上傳。")
+           target.value = ''
+           file.value = null
+           previewUrl.value = ''
+           URL.revokeObjectURL(objectUrl)
+        } else {
+           // Valid
+           file.value = selectedFile
+           previewUrl.value = objectUrl
+        }
+        
+      } catch (err) {
+         console.error("Transparency check failed:", err)
+         // Allow upload if check fails (fail open) but warn
+         file.value = selectedFile
+         previewUrl.value = objectUrl
+      }
+    }
   }
 }
 
