@@ -395,8 +395,14 @@ async def try_on(
         try_on_method = cloth_info.get('try_on_method', 'auto')
         height_ratio = cloth_info.get('height_ratio', None)
         
+        # Verify Replicate Token Status
+        replicate_status = "Available" if os.environ.get("REPLICATE_API_TOKEN") else "Missing"
+        print(f"Preparing AI processing. Replicate Token: {replicate_status}")
+        print(f"Inputs: User({len(user_image)} bytes), Cloth({final_cloth_path})")
+
         # Call AI VTON Service
         try:
+            print("Calling ai_service.virtual_try_on...")
             result_image = ai_service.virtual_try_on(
                 user_image, 
                 final_cloth_path, 
@@ -405,6 +411,7 @@ async def try_on(
                 method=try_on_method,
                 height_ratio=height_ratio
             )
+            print("AI Service returned successfully.")
         finally:
             # Cleanup temp file
             if temp_cloth_path and os.path.exists(temp_cloth_path):
@@ -420,7 +427,9 @@ async def try_on(
 
     except Exception as e:
         print(f"Try-on error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Try-on Error: {str(e)}")
 
 @app.delete("/api/clothes/{cloth_id}")
 async def delete_clothing(cloth_id: str):
