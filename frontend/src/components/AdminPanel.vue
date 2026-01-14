@@ -225,17 +225,16 @@ const upload = async () => {
                 <option value="Upper-body" class="bg-slate-800">Upper Body (通用上身/外套)</option>
               </optgroup>
               <optgroup label="Skirts (裙子)">
-                <option value="Mini Skirt" class="bg-slate-800">Mini Skirt (迷你裙 - 二/三分)</option>
-                <option value="Short Skirt" class="bg-slate-800">Short Skirt (短裙)</option>
-                <option value="Midi Skirt" class="bg-slate-800">Midi Skirt (中長裙 - 及膝)</option>
-                <option value="Long Skirt" class="bg-slate-800">Long Skirt (長裙 - 及踝)</option>
+                <option value="Mini Skirt" class="bg-slate-800">3分裙 (Mini/Short Skirt)</option>
+                <option value="Midi Skirt" class="bg-slate-800">5分裙 (Knee Length)</option>
+                <option value="Long Skirt" class="bg-slate-800">7分裙 (Calf Length)</option>
+                <option value="Maxi Skirt" class="bg-slate-800">9分裙 (Ankle/Full Length)</option>
               </optgroup>
               <optgroup label="Pants (褲子)">
-                 <option value="Hot Pants" class="bg-slate-800">Hot Pants (熱褲 - 二/三分)</option>
-                 <option value="Shorts" class="bg-slate-800">Shorts (短褲)</option>
-                 <option value="Capri Pants" class="bg-slate-800">Capri Pants (五分/七分褲)</option>
-                 <option value="Ankle Pants" class="bg-slate-800">Ankle Pants (九分褲)</option>
-                 <option value="Trousers" class="bg-slate-800">Trousers (長褲)</option>
+                 <option value="Hot Pants" class="bg-slate-800">3分褲 (Shorts/Hot Pants)</option>
+                 <option value="Capri Pants" class="bg-slate-800">5分褲 (Capri/Knee Length)</option>
+                 <option value="Ankle Pants" class="bg-slate-800">9分褲 (Ankle Length)</option>
+                 <option value="Trousers" class="bg-slate-800">10分褲 (Full Length)</option>
               </optgroup>
               <optgroup label="Full Body">
                 <option value="Dresses" class="bg-slate-800">Dress (連身裙/全身)</option>
@@ -344,17 +343,16 @@ const upload = async () => {
                     <option value="Upper-body" class="bg-slate-800">Upper Body</option>
                   </optgroup>
                   <optgroup label="Skirts">
-                    <option value="Mini Skirt" class="bg-slate-800">Mini Skirt (迷你裙)</option>
-                    <option value="Short Skirt" class="bg-slate-800">Short Skirt (短裙)</option>
-                    <option value="Midi Skirt" class="bg-slate-800">Midi Skirt (及膝裙)</option>
-                    <option value="Long Skirt" class="bg-slate-800">Long Skirt (長裙)</option>
+                    <option value="Mini Skirt" class="bg-slate-800">3分裙 (Mini)</option>
+                    <option value="Midi Skirt" class="bg-slate-800">5分裙 (Knee)</option>
+                    <option value="Long Skirt" class="bg-slate-800">7分裙 (Calf)</option>
+                    <option value="Maxi Skirt" class="bg-slate-800">9分裙 (Full)</option>
                   </optgroup>
                   <optgroup label="Pants">
-                     <option value="Hot Pants" class="bg-slate-800">Hot Pants (熱褲)</option>
-                     <option value="Shorts" class="bg-slate-800">Shorts (短褲)</option>
-                     <option value="Capri Pants" class="bg-slate-800">Capri Pants (五分/七分)</option>
-                     <option value="Ankle Pants" class="bg-slate-800">Ankle Pants (九分褲)</option>
-                     <option value="Trousers" class="bg-slate-800">Trousers (長褲)</option>
+                     <option value="Hot Pants" class="bg-slate-800">3分褲 (Shorts)</option>
+                     <option value="Capri Pants" class="bg-slate-800">5分褲 (Knee)</option>
+                     <option value="Ankle Pants" class="bg-slate-800">9分褲 (Ankle)</option>
+                     <option value="Trousers" class="bg-slate-800">10分褲 (Full)</option>
                   </optgroup>
                   <optgroup label="Full Body">
                     <option value="Dresses" class="bg-slate-800">Dress</option>

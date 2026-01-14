@@ -706,11 +706,10 @@ class AIService:
                     "dresses": "dresses",
                     # New Fine-grained Lower Body mappings
                     "mini skirt": "lower_body",
-                    "short skirt": "lower_body",
                     "midi skirt": "lower_body",
                     "long skirt": "lower_body",
+                    "maxi skirt": "lower_body",
                     "hot pants": "lower_body",
-                    "shorts": "lower_body",
                     "capri pants": "lower_body",
                     "ankle pants": "lower_body",
                     "trousers": "lower_body"
@@ -727,10 +726,11 @@ class AIService:
                 desc_map = {
                     "mini skirt": "a very short micro-mini skirt, showing legs, thigh length",
                     "hot pants": "very short hot pants, denim shorts, high cut, showing legs",
-                    "short skirt": "a short skirt, above knee length",
-                    "shorts": "short pants, above knee",
                     "midi skirt": "a knee-length midi skirt",
-                    "long skirt": "a long maxi skirt, ankle length",
+                    "capri pants": "knee-length capri pants",
+                    "long skirt": "a mid-calf length skirt",
+                    "maxi skirt": "a long maxi skirt, ankle length",
+                    "ankle pants": "ankle length pants",
                     "trousers": "long trousers, full length pants"
                 }
                 
