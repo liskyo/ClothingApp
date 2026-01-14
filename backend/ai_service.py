@@ -699,14 +699,24 @@ class AIService:
                 print(f"Human File: Size={human_file.getbuffer().nbytes} Name={human_file.name}")
                 print(f"Cloth File: Size={cloth_file.getbuffer().nbytes} Name={cloth_file.name}")
 
-                # Map Frontend "Upper-body" to Replicate "upper_body"
+                # Map Frontend Categories to Replicate "upper_body", "lower_body", "dresses"
                 cat_map = {
                     "upper-body": "upper_body",
                     "lower-body": "lower_body",
-                    "dresses": "dresses"
+                    "dresses": "dresses",
+                    # New Fine-grained Lower Body mappings
+                    "short skirt": "lower_body",
+                    "midi skirt": "lower_body",
+                    "long skirt": "lower_body",
+                    "shorts": "lower_body",
+                    "capri pants": "lower_body",
+                    "ankle pants": "lower_body",
+                    "trousers": "lower_body"
                 }
                 # Default to upper_body if not found (or if already correct format)
-                api_category = cat_map.get(category.lower(), category.lower().replace("-", "_"))
+                api_category = cat_map.get(category.lower(), "upper_body")
+                
+                # Double check validity
                 if api_category not in ["upper_body", "lower_body", "dresses"]:
                     api_category = "upper_body"
 

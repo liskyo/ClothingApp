@@ -221,9 +221,23 @@ const upload = async () => {
         <div class="col-span-1 md:col-span-2">
             <label class="block text-sm font-medium text-slate-400 mb-2">Clothing Type (Category)</label>
             <select v-model="category" class="input-tech w-full px-4 py-3 appearance-none">
-              <option value="Upper-body" class="bg-slate-800">Upper Body (上身/外套/衣服)</option>
-              <option value="Lower-body" class="bg-slate-800">Lower Body (褲子/裙子)</option>
-              <option value="Dresses" class="bg-slate-800">Dress (連身裙/全身)</option>
+              <optgroup label="Upper Body">
+                <option value="Upper-body" class="bg-slate-800">Upper Body (通用上身/外套)</option>
+              </optgroup>
+              <optgroup label="Skirts (裙子)">
+                <option value="Short Skirt" class="bg-slate-800">Short Skirt (短裙)</option>
+                <option value="Midi Skirt" class="bg-slate-800">Midi Skirt (中長裙 - 及膝)</option>
+                <option value="Long Skirt" class="bg-slate-800">Long Skirt (長裙 - 及踝)</option>
+              </optgroup>
+              <optgroup label="Pants (褲子)">
+                 <option value="Shorts" class="bg-slate-800">Shorts (短褲)</option>
+                 <option value="Capri Pants" class="bg-slate-800">Capri Pants (五分/七分褲)</option>
+                 <option value="Ankle Pants" class="bg-slate-800">Ankle Pants (九分褲)</option>
+                 <option value="Trousers" class="bg-slate-800">Trousers (長褲)</option>
+              </optgroup>
+              <optgroup label="Full Body">
+                <option value="Dresses" class="bg-slate-800">Dress (連身裙/全身)</option>
+              </optgroup>
             </select>
             <p class="text-xs text-slate-500 mt-1">請正確選擇，否則試穿效果會錯誤 (例如褲子跑到胸部)</p>
         </div>
@@ -324,9 +338,23 @@ const upload = async () => {
             <div class="col-span-2">
                 <label class="block text-sm text-slate-400 mb-1">Clothing Type (Category)</label>
                 <select v-model="editingItem.category" class="input-tech w-full px-3 py-2 text-sm appearance-none">
-                  <option value="Upper-body" class="bg-slate-800">Upper Body</option>
-                  <option value="Lower-body" class="bg-slate-800">Lower Body</option>
-                  <option value="Dresses" class="bg-slate-800">Dress</option>
+                  <optgroup label="Upper Body">
+                    <option value="Upper-body" class="bg-slate-800">Upper Body</option>
+                  </optgroup>
+                  <optgroup label="Skirts">
+                    <option value="Short Skirt" class="bg-slate-800">Short Skirt (短裙)</option>
+                    <option value="Midi Skirt" class="bg-slate-800">Midi Skirt (及膝裙)</option>
+                    <option value="Long Skirt" class="bg-slate-800">Long Skirt (長裙)</option>
+                  </optgroup>
+                  <optgroup label="Pants">
+                     <option value="Shorts" class="bg-slate-800">Shorts (短褲)</option>
+                     <option value="Capri Pants" class="bg-slate-800">Capri Pants (五分/七分)</option>
+                     <option value="Ankle Pants" class="bg-slate-800">Ankle Pants (九分褲)</option>
+                     <option value="Trousers" class="bg-slate-800">Trousers (長褲)</option>
+                  </optgroup>
+                  <optgroup label="Full Body">
+                    <option value="Dresses" class="bg-slate-800">Dress</option>
+                  </optgroup>
                 </select>
             </div>
           </div>
