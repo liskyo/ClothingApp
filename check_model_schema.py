@@ -2,7 +2,7 @@ import os
 import replicate
 from dotenv import load_dotenv
 
-load_dotenv("backend/.env")
+load_dotenv(".env")
 
 api_token = os.getenv("REPLICATE_API_TOKEN")
 if not api_token:
