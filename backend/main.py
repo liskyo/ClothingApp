@@ -134,7 +134,12 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
                  # Usually users select their OWN gender.
                  # If user says "中性", they see "中性" items.
                  filtered = [c for c in filtered if c['gender'] == '中性']
+        
+        # Debugging: Expose storage mode in header
+        mode = "MongoDB" if clothes_manager.use_mongo else "Local-JSON"
+        return JSONResponse(content=filtered, headers={"X-Storage-Mode": mode})
 
+        if height:
         if height:
             # Range Logic: Parse "155-175"
             def is_in_range(user_h, range_str):

@@ -10,3 +10,4 @@ Pillow>=10.0.0
 gradio_client>=0.8.0
 pymongo>=4.0.0
 cloudinary>=1.30.0
+dnspython>=2.3.0
