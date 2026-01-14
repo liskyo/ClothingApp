@@ -707,8 +707,9 @@ class AIService:
                         
             except Exception as e:
                 print(f"Replicate Error: {e}")
-                # Force error propagation to UI so user knows if it's billing/quota
-                raise Exception(f"Replicate Error: {str(e)}") 
+                print("⚠️ Replicate failed (Billing/Network). Falling back to Free Model...")
+                # Do NOT raise here. Let it fall through to Gradio.
+                
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
              
