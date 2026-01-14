@@ -707,7 +707,9 @@ class AIService:
                         
             except Exception as e:
                 print(f"Replicate Error: {e}")
-                print("⚠️ Replicate failed (Billing/Network). Falling back to Free Model...")
+                # Debugging: Stop fallback to see why Replicate is failing
+                raise Exception(f"Replicate Error: {str(e)}")
+                # print("⚠️ Replicate failed (Billing/Network). Falling back to Free Model...")
                 # Do NOT raise here. Let it fall through to Gradio.
                 
         else:
