@@ -424,7 +424,7 @@ class AIService:
                     result = client.predict(
                         vton_img=handle_file(padded_person_path), 
                         garm_img=handle_file(proc_cloth_path), 
-                        category=ootd_category, 
+                        # category=ootd_category, # Removed: Invalid argument for this Space
                         n_samples=1,
                         n_steps=20, # Reduced steps for speed (Timeout fix?)
                         image_scale=2, 
@@ -437,7 +437,7 @@ class AIService:
                      result = client.predict(
                         vton_img=handle_file(padded_person_path), 
                         garm_img=handle_file(proc_cloth_path), 
-                        category=ootd_category, 
+                        # category=ootd_category, # Removed: Invalid argument
                         n_samples=1,
                         n_steps=20,
                         image_scale=2, 
