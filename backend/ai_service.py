@@ -699,12 +699,23 @@ class AIService:
                 print(f"Human File: Size={human_file.getbuffer().nbytes} Name={human_file.name}")
                 print(f"Cloth File: Size={cloth_file.getbuffer().nbytes} Name={cloth_file.name}")
 
+                # Map Frontend "Upper-body" to Replicate "upper_body"
+                cat_map = {
+                    "upper-body": "upper_body",
+                    "lower-body": "lower_body",
+                    "dresses": "dresses"
+                }
+                # Default to upper_body if not found (or if already correct format)
+                api_category = cat_map.get(category.lower(), category.lower().replace("-", "_"))
+                if api_category not in ["upper_body", "lower_body", "dresses"]:
+                    api_category = "upper_body"
+
                 output = client.run(
                     model_id,
                     input={
                         "human_img": human_file, 
                         "garm_img": cloth_file,
-                        "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
+                        "category": api_category,
                         "crop": False, 
                         "steps": 20 # Reduced from 30 to speed up and avoid Vercel 60s timeout
                     }

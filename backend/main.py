@@ -219,7 +219,8 @@ async def debug_status():
 async def upload_clothing(
     file: UploadFile = File(...),
     height_range: str = Form(...),
-    gender: str = Form(...)
+    gender: str = Form(...),
+    category: str = Form("Upper-body") # Added Category with default
 ):
     """
     Upload a clothing image.
@@ -307,7 +308,7 @@ async def upload_clothing(
              pass
 
         # Add to database
-        new_id = clothes_manager.add_clothing_item(name, height_range, gender, style, image_url=image_url)
+        new_id = clothes_manager.add_clothing_item(name, height_range, gender, style, category=category, image_url=image_url)
         
         return {
             "id": new_id,

@@ -4,7 +4,9 @@ import axios from 'axios'
 
 const file = ref<File | null>(null)
 const heightRange = ref('')
+const heightRange = ref('')
 const gender = ref('中性')
+const category = ref('Upper-body') // Default category
 const uploadStatus = ref('')
 const result = ref<any>(null)
 
@@ -150,7 +152,9 @@ const upload = async () => {
   const formData = new FormData()
   formData.append('file', file.value)
   formData.append('height_range', heightRange.value)
+  formData.append('height_range', heightRange.value)
   formData.append('gender', gender.value)
+  formData.append('category', category.value)
 
   uploadStatus.value = 'Analyzing...'
   try {
@@ -214,6 +218,16 @@ const upload = async () => {
              <option class="bg-slate-800">女性</option>
              <option class="bg-slate-800">男性</option>
            </select>
+        </div>
+        
+        <div class="col-span-1 md:col-span-2">
+            <label class="block text-sm font-medium text-slate-400 mb-2">Clothing Type (Category)</label>
+            <select v-model="category" class="input-tech w-full px-4 py-3 appearance-none">
+              <option value="Upper-body" class="bg-slate-800">Upper Body (上身/外套/衣服)</option>
+              <option value="Lower-body" class="bg-slate-800">Lower Body (褲子/裙子)</option>
+              <option value="Dresses" class="bg-slate-800">Dress (連身裙/全身)</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">請正確選擇，否則試穿效果會錯誤 (例如褲子跑到胸部)</p>
         </div>
       </div>
 
