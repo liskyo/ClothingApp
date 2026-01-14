@@ -135,11 +135,7 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
                  # If user says "中性", they see "中性" items.
                  filtered = [c for c in filtered if c['gender'] == '中性']
         
-        # Debugging: Expose storage mode in header
-        mode = "MongoDB" if clothes_manager.use_mongo else "Local-JSON"
-        return JSONResponse(content=filtered, headers={"X-Storage-Mode": mode})
 
-        if height:
         if height:
             # Range Logic: Parse "155-175"
             def is_in_range(user_h, range_str):
@@ -159,12 +155,16 @@ async def get_clothes(gender: Optional[str] = None, height: Optional[str] = None
 
             filtered = [c for c in filtered if is_in_range(height, c.get('height_range', ''))]
             
+
+            
         # Add image URL to response
         for c in filtered:
             if 'image_url' not in c or not c['image_url']:
                 c['image_url'] = f"/images/{c['id']}.jpg"
 
-        return filtered
+        # Debugging: Expose storage mode in header
+        mode = "MongoDB" if clothes_manager.use_mongo else "Local-JSON"
+        return JSONResponse(content=filtered, headers={"X-Storage-Mode": mode})
     except Exception as e:
         print(f"Error in get_clothes: {e}")
         import traceback
