@@ -671,36 +671,37 @@ class AIService:
         
         # 1. Replicate (Paid, Best)
         if self.replicate_token and method != 'overlay':
-             try:
-                 print(f"Attempting Replicate (IDM-VTON) for {cloth_name}...")
-                 model_id = "cuuupid/idm-vton:c871bb9b046607b680569f0c558aa565256e6d18725893d508499306b3a32f7a" # Reliable Version
-                 
-                 output = self._get_replicate_module().run(
-                     model_id,
-                     input={
-                         "human_img": io.BytesIO(person_img_bytes),
-                         "garm_img": open(cloth_img_path, "rb"),
-                         "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
-                         "crop": False, 
-                         "seed": 42,
-                         "steps": 30
-                     }
-                 )
-                 print(f"Replicate Result URL: {output}")
-                 if output:
-                     # Replicate returns a URL
-                     import requests
-                     res = requests.get(output)
-                     if res.status_code == 200:
-                         final_result_bytes = res.content
-                         print("Replicate success. Image downloaded.")
-                     else:
-                         print(f"Replicate URL download failed: {res.status_code}")
-                         
-             except Exception as e:
-                 print(f"Replicate Error: {e}")
-                 # Force error propagation to UI so user knows if it's billing/quota
-                 raise Exception(f"Replicate Error: {str(e)}") 
+            try:
+                print(f"🚀 Starting Replicate processing...")
+                # 確保傳入的是二進位數據，而不是路徑
+                with open(cloth_img_path, "rb") as f:
+                    cloth_bytes = f.read()
+
+                output = self._get_replicate_module().run(
+                    "cuuupid/idm-vton:c871bb9b046607b680569f0c558aa565256e6d18725893d508499306b3a32f7a",
+                    input={
+                        "human_img": io.BytesIO(person_img_bytes), # 記憶體中的圖片
+                        "garm_img": io.BytesIO(cloth_bytes),       # 記憶體中的圖片
+                        "category": category.lower() if category.lower() in ["upper_body", "lower_body", "dresses"] else "upper_body",
+                        "crop": False, 
+                        "steps": 30
+                    }
+                )
+                print(f"Replicate Result URL: {output}")
+                if output:
+                    # Replicate returns a URL
+                    import requests
+                    res = requests.get(output)
+                    if res.status_code == 200:
+                        final_result_bytes = res.content
+                        print("Replicate success. Image downloaded.")
+                    else:
+                        print(f"Replicate URL download failed: {res.status_code}")
+                        
+            except Exception as e:
+                print(f"Replicate Error: {e}")
+                # Force error propagation to UI so user knows if it's billing/quota
+                raise Exception(f"Replicate Error: {str(e)}") 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
              
