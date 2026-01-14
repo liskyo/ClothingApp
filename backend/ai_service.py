@@ -4,6 +4,7 @@ import time
 import random
 import io
 from typing import Dict, Optional
+import traceback
 
 class AIService:
     def __init__(self):
