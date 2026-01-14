@@ -724,9 +724,7 @@ class AIService:
                 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}")
-                
-        else:
-             print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}") 
+ 
              
         # 2. Gradio (Free GenAI)
         if method != 'overlay' and not final_result_bytes:
