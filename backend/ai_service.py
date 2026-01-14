@@ -695,6 +695,9 @@ class AIService:
                 cloth_file = io.BytesIO(cloth_bytes)
                 cloth_file.name = "cloth.jpg"
 
+                print(f"Human File: Size={human_file.getbuffer().nbytes} Name={human_file.name}")
+                print(f"Cloth File: Size={cloth_file.getbuffer().nbytes} Name={cloth_file.name}")
+
                 output = client.run(
                     f"cuuupid/idm-vton:{version.id}",
                     input={
@@ -717,10 +720,13 @@ class AIService:
                         print(f"Replicate URL download failed: {res.status_code}")
                         
             except Exception as e:
-                print(f"Replicate Error: {e}")
-                # Restore Fallback: allowing it to proceed to Gradio if Replicate fails
-                print("⚠️ Replicate failed. Falling back to Free Model...")
-                # raise Exception(f"Replicate Error: {str(e)}") # Commented out to allow fallback
+                print(f"Replicate Error Traceback: {traceback.format_exc()}")
+                # Debugging: Stop fallback to see WHY Replicate is failing
+                print("⚠️ Replicate failed. FORCING ERROR for debugging...")
+                raise Exception(f"Replicate Error: {str(e)}") # Force UI to show error
+                
+                # print("⚠️ Replicate failed. Falling back to Free Model...")
+                # pass # Fallback disabled for debug
                 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}")
