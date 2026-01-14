@@ -363,14 +363,13 @@ async def try_on(
              raise HTTPException(status_code=404, detail="Clothes not found in DB")
 
         # Determine Cloth Image Path
-        # Priority: 1. Existing Local File  2. Download from Image URL
+        # Priority: 1. Download from Image URL (New Data) 2. Existing Local File (Legacy Data)
+        # This prevents ID collisions where local '002' overrides cloud '002'
         local_path = os.path.join(MODEL_DIR, f"{clothes_id}.jpg")
         temp_cloth_path = None
         final_cloth_path = None
 
-        if os.path.exists(local_path):
-            final_cloth_path = local_path
-        elif cloth_info.get('image_url', '').startswith('http'):
+        if cloth_info.get('image_url', '').startswith('http'):
             # Download from Cloudinary/URL
             try:
                 import requests
@@ -387,8 +386,18 @@ async def try_on(
                     print(f"Downloaded to temp: {final_cloth_path}")
                 else:
                     print(f"Failed to download image: {response.status_code}")
+                    # Fallback to local if download fails
+                    if os.path.exists(local_path):
+                        final_cloth_path = local_path
             except Exception as e:
                  print(f"Download error: {e}")
+                 # Fallback to local
+                 if os.path.exists(local_path):
+                    final_cloth_path = local_path
+        
+        elif os.path.exists(local_path):
+             final_cloth_path = local_path
+
         
         if not final_cloth_path or not os.path.exists(final_cloth_path):
              raise HTTPException(status_code=404, detail="Clothing image file not found locally or remotely.")
