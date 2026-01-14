@@ -723,18 +723,21 @@ class AIService:
 
                 # Prepare description hint with stronger keywords for short items
                 raw_cat = category.lower()
-                desc_map = {
-                    "mini skirt": "a very short micro-mini skirt, showing legs, thigh length",
-                    "hot pants": "very short hot pants, denim shorts, high cut, showing legs",
-                    "midi skirt": "a knee-length midi skirt",
-                    "capri pants": "knee-length capri pants",
-                    "long skirt": "a mid-calf length skirt",
-                    "maxi skirt": "a long maxi skirt, ankle length",
-                    "ankle pants": "ankle length pants",
-                    "trousers": "long trousers, full length pants"
-                }
                 
-                garm_desc = desc_map.get(raw_cat, f"a {raw_cat.replace('-', ' ')} garment")
+                # Format: "key": ("positive prompt", "negative prompt")
+                prompts_map = {
+                    "mini skirt": ("extremely short micro-mini skirt, high waist, upper thigh length, showing legs, belt skirt", "knee length, midi skirt, long skirt, covering knees, modest"),
+                    "hot pants": ("extremely short hot pants, denim shorts, high cut, showing legs, sexy", "long shorts, knee length, capri, covering legs"),
+                    "midi skirt": ("a knee-length midi skirt", "mini skirt, ankle length, long skirt"),
+                    "capri pants": ("knee-length capri pants", "shorts, ankle length, trousers"),
+                    "long skirt": ("a mid-calf length skirt", "mini skirt, floor length"),
+                    "maxi skirt": ("a long maxi skirt, ankle length", "mini skirt, knee length, showing legs"),
+                    "ankle pants": ("ankle length pants", "shorts, floor length"),
+                    "trousers": ("long trousers, full length pants", "shorts, capri, showing ankles")
+                }
+
+                default_prompt = (f"a {raw_cat.replace('-', ' ')} garment", "")
+                garm_desc, neg_prompt = prompts_map.get(raw_cat, default_prompt)
                 
                 output = client.run(
                     model_id,
@@ -742,9 +745,11 @@ class AIService:
                         "human_img": human_file, 
                         "garm_img": cloth_file,
                         "category": api_category,
-                        "garment_des": garm_desc,
+                        # "description": garm_desc, # Some models use 'description'
+                        "garment_des": garm_desc, # Ensure this is passed
+                        "negative_prompt": neg_prompt, # Try passing if supported
                         "crop": False, 
-                        "steps": 20 # Reduced from 30 to speed up and avoid Vercel 60s timeout
+                        "steps": 20 
                     }
                 )
                 print(f"Replicate Result URL: {output}")
