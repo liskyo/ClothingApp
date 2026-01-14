@@ -677,8 +677,15 @@ class AIService:
                 with open(cloth_img_path, "rb") as f:
                     cloth_bytes = f.read()
 
-                output = self._get_replicate_module().run(
-                    "cuuupid/idm-vton:c871bb9b046607b680569f0c558aa565256e6d18725893d508499306b3a32f7a",
+                # Get latest version dynamically to avoid 422 Invalid Version errors
+                print("Getting latest version of cuuupid/idm-vton...")
+                rep = self._get_replicate_module()
+                model = rep.models.get("cuuupid/idm-vton")
+                version = model.latest_version
+                print(f"Using Version: {version.id}")
+                
+                output = rep.run(
+                    f"cuuupid/idm-vton:{version.id}",
                     input={
                         "human_img": io.BytesIO(person_img_bytes), # 記憶體中的圖片
                         "garm_img": io.BytesIO(cloth_bytes),       # 記憶體中的圖片
