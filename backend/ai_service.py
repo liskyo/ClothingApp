@@ -682,8 +682,8 @@ class AIService:
                 import replicate
                 client = replicate.Client(api_token=self.replicate_token)
                 
-                # This is the "cuuupid/idm-vton" model: c871bb9b046607e580c22118d08d6800dd7edc9b11e73719000c0293d5bd7308
-                model_id = "cuuupid/idm-vton:c871bb9b046607e580c22118d08d6800dd7edc9b11e73719000c0293d5bd7308"
+                # This is the "cuuupid/idm-vton" model: 0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985
+                model_id = "cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985"
                 print(f"Using Replicate Model: {model_id}")
                 
                 # Prepare Inputs with explicit filenames (Fix for 'Concatenate NoneType' error)
@@ -720,11 +720,11 @@ class AIService:
             except Exception as e:
                 print(f"Replicate Error Traceback: {traceback.format_exc()}")
                 # Debugging: Stop fallback to see WHY Replicate is failing
-                print("⚠️ Replicate failed. FORCING ERROR for debugging...")
-                raise Exception(f"Replicate Error: {str(e)}") # Force UI to show error
+                print("⚠️ Replicate failed. Attempting Fallback to Free Model...")
+                # raise Exception(f"Replicate Error: {str(e)}") # Force UI to show error
                 
-                # print("⚠️ Replicate failed. Falling back to Free Model...")
-                # pass # Fallback disabled for debug
+                print("⚠️ Replicate failed. Falling back to Free Model...")
+                pass # Enable Fallback
                 
         else:
              print(f"Skipping Replicate. Token: {bool(self.replicate_token)}, Method: {method}")
