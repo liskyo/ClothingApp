@@ -167,6 +167,43 @@ const upload = async () => {
     uploadStatus.value = 'Error uploading.'
   }
 }
+
+// New methods for try-on image and outfit suggestion
+const generateTryOnImage = async () => {
+  if (!result.value || !result.value.id) {
+    alert('請先上傳衣物並獲取分析結果')
+    return
+  }
+
+  try {
+    const res = await axios.post('/api/tryon', { clothing_id: result.value.id })
+    const imageUrl = res.data.image_url
+
+    // Open in new tab or download
+    window.open(imageUrl, '_blank')
+  } catch (err) {
+    console.error(err)
+    alert('生成試穿照片時發生錯誤')
+  }
+}
+
+const suggestOutfit = async () => {
+  if (!result.value || !result.value.style) {
+    alert('請先上傳衣物並獲取分析結果')
+    return
+  }
+
+  try {
+    const res = await axios.post('/api/suggest-outfit', { style: result.value.style })
+    const suggestedClothes = res.data
+
+    // TODO: Handle displaying suggested outfits (e.g., show in a modal or new section)
+    console.log('Suggested outfits:', suggestedClothes)
+  } catch (err) {
+    console.error(err)
+    alert('獲取建議穿搭時發生錯誤')
+  }
+}
 </script>
 
 <template>
@@ -369,6 +406,26 @@ const upload = async () => {
       </div>
     </div>
 
+    <!-- Try-On and Suggestion Section -->
+    <div class="mt-12">
+      <h2 class="text-2xl font-bold text-white mb-4">試穿照片生成與建議穿搭</h2>
+      
+      <div class="space-y-4">
+        <div>
+          <h3 class="text-lg font-semibold text-purple-300">生成試穿照片</h3>
+          <button @click="generateTryOnImage" class="btn-tech px-4 py-2 text-lg w-full">
+            生成試穿照片
+          </button>
+        </div>
+        
+        <div>
+          <h3 class="text-lg font-semibold text-purple-300">建議穿搭</h3>
+          <button @click="suggestOutfit" class="btn-tech px-4 py-2 text-lg w-full">
+            建議穿搭
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

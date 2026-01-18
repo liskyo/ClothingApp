@@ -825,3 +825,12 @@ class AIService:
             final_result_bytes = self._add_watermark(final_result_bytes)
             
         return final_result_bytes
+
+    def generate_try_on_image(user_image, outfit_combination):
+        # 產生試穿照片的邏輯
+        pass
+
+
+    def suggest_outfit_combinations(user_image):
+        # 建議穿搭的服裝組合邏輯
+        pass
