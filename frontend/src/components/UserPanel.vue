@@ -11,15 +11,22 @@ interface Cloth {
   style: string
 }
 
+type Mode = 'try-on' | 'recommend'
+
+const mode = ref<Mode>('try-on')
 const clothes = ref<Cloth[]>([])
 const userHeight = ref('')
+const userWeight = ref('')
 const userGender = ref('中性')
+const stylePreference = ref('')
 const userFile = ref<File | null>(null)
 const userPhotoPreview = ref<string | null>(null)
 const selectedCloth = ref<Cloth | null>(null)
 const tryOnResult = ref<string | null>(null)
 const loading = ref(false)
 const isValidating = ref(false)
+const recommending = ref(false)
+const recommendedOutfits = ref<Cloth[][]>([])
 
 const fetchClothes = async () => {
   try {
@@ -208,6 +215,52 @@ const tryOn = async (cloth: Cloth) => {
   }
 }
 
+const switchMode = (newMode: Mode) => {
+  mode.value = newMode
+  if (newMode === 'try-on') {
+    recommendedOutfits.value = []
+  } else {
+    tryOnResult.value = null
+    selectedCloth.value = null
+  }
+}
+
+const recommendOutfit = async () => {
+  if (!userHeight.value || !userWeight.value) {
+    alert('請輸入身高和體重')
+    return
+  }
+  
+  recommending.value = true
+  recommendedOutfits.value = []
+  
+  try {
+    const params = new URLSearchParams()
+    params.append('height', userHeight.value)
+    params.append('weight', userWeight.value)
+    params.append('gender', userGender.value)
+    if (stylePreference.value.trim()) {
+      params.append('style_preference', stylePreference.value.trim())
+    }
+    
+    const res = await axios.get('/api/recommend-outfit', { params })
+    recommendedOutfits.value = res.data.outfits || []
+    
+    if (recommendedOutfits.value.length === 0) {
+      alert('抱歉，目前沒有符合條件的服裝組合。請嘗試調整您的條件。')
+    }
+  } catch (err: any) {
+    console.error(err)
+    let errorMsg = "推薦失敗，請稍後再試。"
+    if (err.response?.data?.detail) {
+      errorMsg = err.response.data.detail
+    }
+    alert(errorMsg)
+  } finally {
+    recommending.value = false
+  }
+}
+
 onMounted(() => {
   fetchClothes()
 })
@@ -215,6 +268,28 @@ onMounted(() => {
 
 <template>
   <div class="space-y-8">
+    <!-- Mode Selector -->
+    <section class="glass-panel p-4 rounded-2xl">
+      <div class="flex space-x-4 bg-slate-800/50 p-1 rounded-xl border border-white/5">
+        <button 
+          @click="switchMode('try-on')"
+          class="flex-1 px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300"
+          :class="mode === 'try-on' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+        >
+          📷 全身照試穿
+        </button>
+        <button 
+          @click="switchMode('recommend')"
+          class="flex-1 px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300"
+          :class="mode === 'recommend' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'"
+        >
+          ✨ 風格建議
+        </button>
+      </div>
+    </section>
+
+    <!-- Try-On Mode -->
+    <div v-if="mode === 'try-on'">
     <!-- Studio Control Panel -->
     <section class="glass-panel p-6 rounded-2xl relative overflow-hidden">
       <!-- Background Effect -->
@@ -328,6 +403,106 @@ onMounted(() => {
         </div>
       </div>
     </section>
+    </div>
+
+    <!-- Recommend Mode -->
+    <div v-if="mode === 'recommend'">
+      <section class="glass-panel p-6 rounded-2xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+        <div class="space-y-6">
+          <h2 class="text-2xl font-bold text-white flex items-center">
+            <span class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-sm mr-3">1</span>
+            個人資訊與風格偏好
+          </h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Height -->
+            <div>
+              <label class="block text-sm font-medium text-slate-400 mb-2">身高 (cm) *</label>
+              <input v-model="userHeight" type="number" class="input-tech w-full px-4 py-3" placeholder="例如: 165" min="100" max="250">
+            </div>
+            
+            <!-- Weight -->
+            <div>
+              <label class="block text-sm font-medium text-slate-400 mb-2">體重 (kg) *</label>
+              <input v-model="userWeight" type="number" class="input-tech w-full px-4 py-3" placeholder="例如: 55" min="30" max="200">
+            </div>
+            
+            <!-- Gender -->
+            <div>
+              <label class="block text-sm font-medium text-slate-400 mb-2">性別偏好</label>
+              <select v-model="userGender" class="input-tech w-full px-4 py-3 appearance-none">
+                <option class="bg-slate-800">中性</option>
+                <option class="bg-slate-800">女性</option>
+                <option class="bg-slate-800">男性</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Style Preference -->
+          <div>
+            <label class="block text-sm font-medium text-slate-400 mb-2">喜歡的風格要求</label>
+            <textarea 
+              v-model="stylePreference" 
+              class="input-tech w-full px-4 py-3 h-24 resize-none" 
+              placeholder="例如：休閒風格、正式場合、甜美可愛、簡約時尚、運動風格、學院風格、度假休閒等..."
+            ></textarea>
+          </div>
+
+          <!-- Recommend Button -->
+          <button 
+            @click="recommendOutfit" 
+            :disabled="recommending || !userHeight || !userWeight"
+            class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            <span v-if="recommending" class="flex items-center">
+              <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              正在分析並推薦中...
+            </span>
+            <span v-else>✨ 獲取風格建議</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Recommended Outfits -->
+      <section v-if="recommendedOutfits.length > 0" class="space-y-6">
+        <h2 class="text-2xl font-bold mb-6 text-white flex items-center">
+          <span class="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center text-sm mr-3">2</span>
+          推薦穿搭組合
+        </h2>
+        
+        <div v-for="(outfit, index) in recommendedOutfits" :key="index" class="glass-panel p-6 rounded-2xl">
+          <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+            <span class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-xs mr-2">{{ index + 1 }}</span>
+            組合 {{ index + 1 }}
+          </h3>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div v-for="cloth in outfit" :key="cloth.id" class="group relative bg-slate-800/40 rounded-2xl overflow-hidden border border-white/5 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
+              <div class="aspect-[3/4] w-full overflow-hidden bg-slate-900 relative">
+                <img :src="cloth.image_url" :alt="cloth.name" class="h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-110">
+              </div>
+              <div class="p-4">
+                <h4 class="text-sm font-bold text-white mb-1">{{ cloth.name }}</h4>
+                <p class="text-xs text-slate-400">{{ cloth.style }}</p>
+                <p class="text-xs text-slate-500 mt-1">{{ cloth.category }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Empty State -->
+      <section v-else-if="!recommending" class="glass-panel p-12 rounded-2xl text-center">
+        <div class="text-slate-500 flex flex-col items-center">
+          <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <p class="text-lg mb-2">請輸入您的個人資訊和風格偏好</p>
+          <p class="text-sm text-slate-600">然後點擊「獲取風格建議」來獲得推薦的服裝組合</p>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 

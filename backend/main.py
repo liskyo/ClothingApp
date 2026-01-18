@@ -531,6 +531,51 @@ async def update_clothing(cloth_id: str, updates: UpdateClothRequest):
         print(f"Update error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/recommend-outfit")
+async def recommend_outfit(
+    height: str,
+    weight: str,
+    gender: str = "中性",
+    style_preference: Optional[str] = None
+):
+    """
+    根據使用者的身高、體重、性別和風格偏好推薦服裝組合。
+    """
+    if not clothes_manager:
+        raise HTTPException(status_code=500, detail="ClothesManager failed to initialize")
+    
+    if not ai_service:
+        raise HTTPException(status_code=500, detail="AIService failed to initialize")
+    
+    try:
+        # 獲取所有可用服裝
+        all_clothes = clothes_manager.get_all_clothes()
+        
+        # 添加圖片 URL（如果缺失）
+        for c in all_clothes:
+            if 'image_url' not in c or not c['image_url']:
+                c['image_url'] = f"/images/{c['id']}.jpg"
+        
+        # 使用 AI 服務推薦服裝組合
+        recommended_outfits = ai_service.recommend_outfit(
+            height=height,
+            weight=weight,
+            gender=gender,
+            style_preference=style_preference or "",
+            available_clothes=all_clothes
+        )
+        
+        return {
+            "outfits": recommended_outfits,
+            "count": len(recommended_outfits)
+        }
+        
+    except Exception as e:
+        print(f"Error in recommend_outfit: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -3,7 +3,7 @@ import json
 import time
 import random
 import io
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import traceback
 
 class AIService:
@@ -826,11 +826,207 @@ class AIService:
             
         return final_result_bytes
 
-    def generate_try_on_image(user_image, outfit_combination):
-        # 產生試穿照片的邏輯
-        pass
+    def recommend_outfit(self, height: str, weight: str, gender: str, style_preference: str, available_clothes: List[Dict]) -> List[List[Dict]]:
+        """
+        根據使用者的身高、體重、性別和風格偏好推薦服裝組合。
+        使用 Gemini AI 分析需求並匹配可用服裝。
+        
+        Returns:
+            服裝組合列表，每個組合是一個服裝項目列表 (Dict)
+        """
+        if not self.gemini_keys:
+            print("Gemini API key not found. Using basic filter recommendation.")
+            return self._basic_recommend_outfit(height, weight, gender, style_preference, available_clothes)
 
+        genai = self._get_genai_module()
+        if not genai:
+            print("Gemini module not available. Using basic filter recommendation.")
+            return self._basic_recommend_outfit(height, weight, gender, style_preference, available_clothes)
 
-    def suggest_outfit_combinations(user_image):
-        # 建議穿搭的服裝組合邏輯
-        pass
+        try:
+            # 準備可用服裝摘要供 AI 分析
+            clothes_summary = []
+            for cloth in available_clothes:
+                clothes_summary.append({
+                    "id": cloth.get("id", ""),
+                    "name": cloth.get("name", ""),
+                    "category": cloth.get("category", "Upper-body"),
+                    "style": cloth.get("style", ""),
+                    "gender": cloth.get("gender", "中性"),
+                    "height_range": cloth.get("height_range", "")
+                })
+
+            prompt = f"""
+請根據使用者的個人資訊和風格偏好，從以下服裝清單中推薦 3-5 套穿搭組合。
+
+使用者資訊：
+- 身高: {height} cm
+- 體重: {weight} kg
+- 性別偏好: {gender}
+- 風格要求: {style_preference if style_preference else "無特別要求，請推薦適合的風格"}
+
+可用服裝清單：
+{json.dumps(clothes_summary, ensure_ascii=False, indent=2)}
+
+請注意：
+1. 考慮身高和體重，選擇適合的服裝尺寸範圍（根據 height_range）
+2. 考慮性別偏好（"中性"表示不限制）
+3. 考慮風格偏好，選擇風格相符的服裝
+4. 每套組合應包含 2-4 件服裝，可以是上衣、下裝、外套等不同類別
+5. 搭配要協調，顏色和風格要匹配
+6. 優先選擇不同類別的服裝進行組合（例如：上衣+下裝，或連身裙+外套）
+
+請回傳 JSON 格式，包含 "outfits" 陣列，每個元素是一個服裝組合（陣列），每個組合包含服裝的 "id"。
+格式範例：
+{{
+  "outfits": [
+    [{{"id": "001"}}, {{"id": "006"}}],
+    [{{"id": "003"}}, {{"id": "009"}}],
+    [{{"id": "007"}}, {{"id": "010"}}]
+  ]
+}}
+
+請直接回傳 JSON，不要 markdown 格式。
+"""
+
+            # 輪詢邏輯
+            errors = []
+            start_key_idx = random.randint(0, len(self.gemini_keys) - 1)
+            rotated_keys = self.gemini_keys[start_key_idx:] + self.gemini_keys[:start_key_idx]
+            
+            for key in rotated_keys:
+                genai.configure(api_key=key)
+                
+                for model_name in self.gemini_models:
+                    try:
+                        print(f"Trying Gemini Model: {model_name} for outfit recommendation...")
+                        model = genai.GenerativeModel(model_name)
+                        
+                        response = model.generate_content(prompt)
+                        text = response.text.replace("```json", "").replace("```", "").strip()
+                        
+                        # 找到第一個 { 和最後一個 }
+                        start = text.find("{")
+                        end = text.rfind("}") + 1
+                        if start != -1 and end != 0:
+                            text = text[start:end]
+                        
+                        result = json.loads(text)
+                        
+                        # 將 AI 回應轉換為完整的服裝項目
+                        outfits = []
+                        for outfit_ids in result.get("outfits", []):
+                            outfit_items = []
+                            for item_id in outfit_ids:
+                                cloth_id = item_id.get("id") if isinstance(item_id, dict) else str(item_id)
+                                # 找到完整的服裝項目
+                                for cloth in available_clothes:
+                                    if str(cloth.get("id", "")).replace(".jpg", "") == str(cloth_id).replace(".jpg", ""):
+                                        outfit_items.append(cloth)
+                                        break
+                            if outfit_items:  # 只有在找到至少一件服裝時才添加
+                                outfits.append(outfit_items)
+                        
+                        if outfits:
+                            print(f"AI recommended {len(outfits)} outfit combinations")
+                            return outfits
+                        else:
+                            print("AI returned empty outfits, falling back to basic recommendation")
+                            return self._basic_recommend_outfit(height, weight, gender, style_preference, available_clothes)
+
+                    except Exception as e:
+                        error_msg = str(e)
+                        key_hint = f"...{key[-4:]}"
+                        errors.append(f"Key({key_hint})/{model_name}: {error_msg}")
+                        if "404" in error_msg:
+                            continue
+            
+            # 如果全部失敗，使用基本推薦
+            last_error = errors[-1] if errors else "Unknown Error"
+            print(f"All Gemini attempts failed. Errors: {errors}")
+            print("Falling back to basic recommendation")
+            return self._basic_recommend_outfit(height, weight, gender, style_preference, available_clothes)
+
+        except Exception as e:
+            print(f"AI recommendation error: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._basic_recommend_outfit(height, weight, gender, style_preference, available_clothes)
+
+    def _basic_recommend_outfit(self, height: str, weight: str, gender: str, style_preference: str, available_clothes: List[Dict]) -> List[List[Dict]]:
+        """
+        使用過濾邏輯的基本服裝推薦（當 AI 不可用時的備用方案）。
+        """
+        try:
+            height_int = int(height)
+        except:
+            height_int = 165  # 預設身高
+
+        # 根據性別和身高過濾服裝
+        filtered = []
+        for cloth in available_clothes:
+            cloth_gender = cloth.get("gender", "中性")
+            # 性別匹配
+            if gender != "中性" and cloth_gender != "中性" and cloth_gender != gender:
+                continue
+            
+            # 身高範圍匹配
+            height_range = cloth.get("height_range", "")
+            if height_range:
+                try:
+                    import re
+                    nums = re.findall(r'\d+', height_range)
+                    if len(nums) >= 2:
+                        min_h, max_h = int(nums[0]), int(nums[1])
+                        if not (min_h <= height_int <= max_h):
+                            continue
+                except:
+                    pass
+            
+            # 風格偏好過濾（如果提供）
+            if style_preference and style_preference.strip():
+                cloth_style = cloth.get("style", "").lower()
+                pref_lower = style_preference.lower()
+                # 簡單的關鍵字匹配
+                style_keywords = ["休閒", "正式", "甜美", "簡約", "運動", "學院", "度假"]
+                found_match = False
+                for keyword in style_keywords:
+                    if keyword in pref_lower and keyword in cloth_style:
+                        found_match = True
+                        break
+                if not found_match and len(filtered) < 20:  # 如果沒有匹配，但仍然保留一些
+                    pass  # 暫時不過濾，允許所有風格
+                # 如果風格完全不匹配且有足夠選項，可以跳過
+                if not found_match and len(filtered) >= 15:
+                    continue
+            
+            filtered.append(cloth)
+
+        if not filtered:
+            return []
+
+        # 簡單的組合邏輯：嘗試匹配上衣 + 下裝
+        outfits = []
+        upper_bodies = [c for c in filtered if c.get("category", "").lower() in ["upper-body", "whole-body"]]
+        lower_bodies = [c for c in filtered if c.get("category", "").lower() in ["lower-body"]]
+        
+        # 創建最多 5 個組合
+        max_combos = min(5, max(len(upper_bodies), len(lower_bodies)))
+        for i in range(max_combos):
+            outfit = []
+            if upper_bodies and i < len(upper_bodies):
+                outfit.append(upper_bodies[i])
+            if lower_bodies and i < len(lower_bodies):
+                outfit.append(lower_bodies[i])
+            if outfit:
+                outfits.append(outfit)
+        
+        # 如果我們沒有足夠的組合，添加一些單件
+        if len(outfits) < 3:
+            for cloth in filtered[:3]:
+                if not any(cloth in outfit for outfit in outfits):
+                    outfits.append([cloth])
+                if len(outfits) >= 5:
+                    break
+
+        return outfits[:5]  # 返回最多 5 個組合
