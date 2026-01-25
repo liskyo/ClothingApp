@@ -9,6 +9,7 @@ interface Cloth {
   height_range: string
   gender: string
   style: string
+  category?: string
 }
 
 type Mode = 'try-on' | 'recommend'
